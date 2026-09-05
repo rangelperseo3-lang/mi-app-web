@@ -154,6 +154,22 @@ tr:hover td{background:#fbfbfd;}
 .risk-list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:.85rem;}
 .risk-list-item:last-child{border-bottom:none;}
 
+/* CARGA INICIAL */
+#loading-overlay{position:fixed;inset:0;background:var(--navy-deep);display:flex;flex-direction:column;
+  justify-content:center;align-items:center;z-index:5000;color:#fff;gap:14px;}
+#loading-overlay .spinner{width:38px;height:38px;border:3px solid rgba(201,162,39,.25);border-top-color:var(--gold);
+  border-radius:50%;animation:spin .8s linear infinite;}
+#loading-overlay p{font-size:.82rem;color:var(--gold-light);letter-spacing:.3px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+/* AVISO DE DATOS NUEVOS (sincronización de fondo) */
+#banner-actualizacion{position:fixed;top:14px;left:50%;transform:translateX(-50%);display:none;
+  align-items:center;gap:12px;background:var(--navy-deep);color:#fff;padding:10px 16px;border-radius:9px;
+  border-left:4px solid var(--gold);z-index:1500;font-size:.83rem;box-shadow:0 10px 25px rgba(0,0,0,.25);}
+#banner-actualizacion button{background:var(--gold);color:var(--navy-deep);border:none;padding:6px 12px;
+  border-radius:6px;font-weight:800;font-size:.78rem;cursor:pointer;}
+#banner-actualizacion button:hover{background:var(--gold-light);}
+
 @media(max-width:900px){
   #view-app{grid-template-columns:1fr;}
   aside{display:none;}
@@ -162,6 +178,16 @@ tr:hover td{background:#fbfbfd;}
 </style>
 </head>
 <body>
+
+<div id="loading-overlay">
+  <div class="spinner"></div>
+  <p>Cargando información de JORAN...</p>
+</div>
+
+<div id="banner-actualizacion">
+  <span><i class="fa-solid fa-circle-info"></i> Hay información nueva de otro dispositivo.</span>
+  <button onclick="actualizarDatosManual()">Actualizar ahora</button>
+</div>
 
 <section id="view-login">
   <div class="login-card">
@@ -259,11 +285,11 @@ const DB = {
    La SESIÓN (quién inició sesión en ESTE dispositivo) se guarda solo
    en localStorage: cada dispositivo mantiene su propia sesión.
    La BASE DE DATOS (clientes, trabajadores, seguimientos, etc.) se
-   guarda en el servidor (MongoDB Atlas) para que sea visible desde
-   cualquier dispositivo, no solo el que la creó.
+   guarda en el servidor para que sea visible desde cualquier
+   dispositivo, no solo el que la creó.
 ------------------------------------------------- */
 const SESSION_KEY = 'joran_sesion_v1';
-const API_BASE = ''; // mismo origen que sirve este archivo (Express)
+const API_BASE = ''; // mismo origen que sirve este archivo
 
 let _guardadoPendiente = false;
 let _guardadoEnCurso = false;
@@ -281,21 +307,50 @@ function cargarSesionLocal() {
   } catch (e) { return false; }
 }
 
+const DB_CACHE_KEY = 'joran_cache_db_v1';
+function guardarCacheDB() {
+  try { localStorage.setItem(DB_CACHE_KEY, JSON.stringify(DB)); } catch (e) { /* almacenamiento no disponible */ }
+}
+function cargarCacheDB() {
+  try {
+    const raw = localStorage.getItem(DB_CACHE_KEY);
+    if (!raw) return false;
+    Object.assign(DB, JSON.parse(raw));
+    return true;
+  } catch (e) { return false; }
+}
+
+// Devuelve { ok, cambio }: ok = si se pudo hablar con el servidor, cambio = si los
+// datos traídos son distintos a los que ya teníamos en memoria.
 async function cargarEstadoRemoto() {
   try {
     const res = await fetch(API_BASE + '/api/estado');
     if (!res.ok) throw new Error('Respuesta no válida del servidor');
     const datos = await res.json();
     // Si hay un guardado local pendiente o en curso, no lo pisamos con datos viejos del servidor.
-    if (_guardadoPendiente || _guardadoEnCurso) return false;
+    if (_guardadoPendiente || _guardadoEnCurso) return { ok: true, cambio: false };
+    let cambio = false;
     if (datos && typeof datos === 'object' && Object.keys(datos).length) {
+      const anterior = JSON.stringify(DB);
       Object.assign(DB, datos);
+      cambio = JSON.stringify(DB) !== anterior;
     }
-    return true;
+    guardarCacheDB();
+    return { ok: true, cambio };
   } catch (e) {
     console.error('No se pudo cargar el estado desde el servidor:', e);
-    return false;
+    return { ok: false, cambio: false };
   }
+}
+
+async function cargarEstadoRemotoConReintentos(intentos) {
+  let resultado = { ok: false, cambio: false };
+  for (let i = 0; i < intentos; i++) {
+    resultado = await cargarEstadoRemoto();
+    if (resultado.ok) return resultado;
+    await new Promise(r => setTimeout(r, 1000));
+  }
+  return resultado;
 }
 
 function guardarEstado() {
@@ -328,8 +383,9 @@ async function enviarEstadoRemoto() {
 
 async function actualizarDatosManual() {
   mostrarNotificacion('Buscando datos actualizados...');
-  const ok = await cargarEstadoRemoto();
+  const { ok } = await cargarEstadoRemoto();
   if (ok) {
+    ocultarBannerActualizacion();
     // Volver a pintar la vista actual con los datos frescos
     const activo = document.querySelector('.nav-link.active');
     if (activo) activo.click();
@@ -339,11 +395,41 @@ async function actualizarDatosManual() {
   }
 }
 
+/* Vistas con formularios largos: si el sondeo de fondo encuentra cambios
+   mientras el usuario está aquí (o con un modal abierto), NO repintamos
+   de golpe -- eso borraría lo que lleva escrito. En vez de eso, mostramos
+   un aviso para que decida cuándo actualizar. */
+let VISTA_ACTUAL = null;
+const VISTAS_SENSIBLES = ['w-inicio'];
+
+function haySesionSegura() {
+  const modalAbierto = el('modal-overlay').classList.contains('open');
+  const vistaSensible = VISTAS_SENSIBLES.includes(VISTA_ACTUAL);
+  return !modalAbierto && !vistaSensible;
+}
+
+function mostrarBannerActualizacion() {
+  const banner = el('banner-actualizacion');
+  if (banner) banner.style.display = 'flex';
+}
+function ocultarBannerActualizacion() {
+  const banner = el('banner-actualizacion');
+  if (banner) banner.style.display = 'none';
+}
+
 /* Sincronización periódica en segundo plano: mientras no haya cambios
    locales sin guardar, trae lo último que hayan guardado otros
    dispositivos, para que la información se mantenga compartida. */
-setInterval(() => {
-  if (!_guardadoPendiente && !_guardadoEnCurso) cargarEstadoRemoto();
+setInterval(async () => {
+  if (_guardadoPendiente || _guardadoEnCurso) return;
+  const { ok, cambio } = await cargarEstadoRemoto();
+  if (!ok || !cambio) return;
+  if (haySesionSegura()) {
+    const activo = document.querySelector('.nav-link.active');
+    if (activo) activo.click();
+  } else {
+    mostrarBannerActualizacion();
+  }
 }, 8000);
 
 /* ---------------- Utilidades ---------------- */
@@ -512,21 +598,35 @@ function navegar(id, elx) {
   if (elx) elx.classList.add('active');
   const route = CURRENT_ROLE_ROUTES[id];
   if (!route) { mostrarNotificacion('Módulo en construcción'); return; }
+  VISTA_ACTUAL = id;
   el('titulo-pagina').innerText = route.titulo;
   el('content-container').innerHTML = route.render();
   if (route.after) route.after();
+  ocultarBannerActualizacion();
   guardarSesionLocal();
 }
 
 /* ---------------- Arranque de la aplicación ---------------- */
+function mostrarCargaInicial(mostrar) {
+  const overlay = el('loading-overlay');
+  if (overlay) overlay.style.display = mostrar ? 'flex' : 'none';
+}
+
 async function iniciarApp() {
   cargarSesionLocal();
-  await cargarEstadoRemoto();
+  mostrarCargaInicial(true);
+  // Mientras confirmamos con el servidor, partimos de la última copia
+  // guardada en este dispositivo (si existe) para no arrancar en blanco.
+  cargarCacheDB();
+  const { ok } = await cargarEstadoRemotoConReintentos(2);
+  mostrarCargaInicial(false);
+
   const sesionValida = SESSION.rol && (
     (SESSION.rol === 'client' && getCliente(SESSION.clienteId)) ||
     (SESSION.rol === 'worker' && getTrabajador(SESSION.trabajadorId)) ||
     SESSION.rol === 'admin'
   );
+
   if (sesionValida) {
     el('view-login').style.display = 'none';
     el('view-app').style.display = 'grid';
@@ -535,6 +635,13 @@ async function iniciarApp() {
     if (SESSION.rol === 'client') initClienteUI();
     else if (SESSION.rol === 'worker') initTrabajadorUI();
     else if (SESSION.rol === 'admin') initAdminUI();
+    if (!ok) mostrarNotificacion('Sin conexión con el servidor: mostrando la última información guardada en este dispositivo.');
+  } else if (!ok && SESSION.rol) {
+    // Había una sesión guardada pero no pudimos confirmarla contra el servidor
+    // (y tampoco había copia local con ese cliente/trabajador). No cerramos la
+    // sesión de una: dejamos la pantalla de login y avisamos, para que el
+    // usuario reintente en vez de perder su acceso por un corte de red.
+    mostrarNotificacion('No se pudo conectar con el servidor para confirmar tu sesión. Verifica tu conexión e inténtalo de nuevo.');
   } else {
     SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
   }
