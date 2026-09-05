@@ -1,0 +1,1604 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>INVERSIONES JORAN - Plataforma de Gestión PyMEs</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+:root{
+  --navy-deep:#071427;
+  --navy:#0d2340;
+  --navy-mid:#123055;
+  --navy-hover:#1a3d6b;
+  --gold:#c9a227;
+  --gold-light:#e0c05a;
+  --bg-main:#f3f5f8;
+  --card-bg:#ffffff;
+  --text-main:#1c2733;
+  --text-muted:#64748b;
+  --border-color:#e2e8f0;
+  --success-green:#0f9d58;
+  --success-bg:#d9f2e6;
+  --warning-amber:#b8860b;
+  --warning-bg:#fbeecb;
+  --danger-red:#c0392b;
+  --danger-bg:#fbe1de;
+}
+*{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif;}
+body{background:var(--bg-main);color:var(--text-main);min-height:100vh;overflow-x:hidden;}
+img.logo-img{display:block;object-fit:contain;}
+.logo-badge{display:flex;align-items:center;justify-content:center;font-weight:800;letter-spacing:.5px;
+  border-radius:50%;background:linear-gradient(160deg,var(--navy-mid) 0%,var(--navy-deep) 100%);
+  color:var(--gold);border:2px solid var(--gold);flex-shrink:0;}
+
+/* LOGIN */
+#view-login{display:flex;justify-content:center;align-items:center;min-height:100vh;
+  background:radial-gradient(circle at 30% 20%, #123055 0%, #071427 65%);}
+.login-card{background:linear-gradient(160deg,var(--navy-mid) 0%,var(--navy-deep) 100%);border-radius:16px;padding:42px 34px;width:100%;max-width:430px;
+  box-shadow:0 25px 60px -12px rgba(0,0,0,.6);text-align:center;color:#fff;
+  border-top:4px solid var(--gold);border:1px solid rgba(201,162,39,.35);}
+.login-card .logo-img{width:110px;height:110px;margin:0 auto 14px auto;filter:drop-shadow(0 6px 14px rgba(0,0,0,.4));}
+.login-card .logo-badge{width:110px;height:110px;margin:0 auto 14px auto;font-size:2.1rem;box-shadow:0 6px 14px rgba(0,0,0,.4);}
+.login-card h2{font-size:1.25rem;font-weight:800;color:#fff;letter-spacing:.5px;margin-bottom:4px;}
+.login-card .tagline{font-size:.7rem;color:var(--gold-light);text-transform:uppercase;font-weight:700;letter-spacing:1.5px;margin-bottom:26px;}
+.form-group{text-align:left;margin-bottom:16px;}
+.form-group label{display:block;font-size:.8rem;margin-bottom:6px;font-weight:600;color:var(--gold-light);letter-spacing:.2px;}
+.login-card .form-control{background:rgba(255,255,255,.06);border:1px solid rgba(201,162,39,.4);color:#fff;}
+.login-card .form-control::placeholder{color:rgba(255,255,255,.45);}
+.login-card .form-control:focus{border-color:var(--gold);background:rgba(255,255,255,.1);}
+.login-card select.form-control option{background:var(--navy-deep);color:#fff;}
+.password-field{position:relative;}
+.password-toggle{position:absolute;right:12px;top:50%;transform:translateY(-50%);background:none;border:none;color:rgba(255,255,255,.55);cursor:pointer;font-size:.9rem;padding:0;}
+.password-toggle:hover{color:var(--gold-light);}
+.form-control{width:100%;border:1px solid var(--border-color);border-radius:8px;padding:11px 12px;font-size:.92rem;outline:none;background:#f8fafc;}
+.form-control:focus{border-color:var(--navy);background:#fff;}
+textarea.form-control{resize:vertical;font-family:inherit;}
+.btn-login{width:100%;background:var(--gold);color:var(--navy-deep);border:none;padding:12px;border-radius:8px;
+  font-weight:800;cursor:pointer;font-size:.98rem;transition:.2s;margin-top:8px;letter-spacing:.3px;}
+.btn-login:hover{background:var(--gold-light);}
+.login-hint{font-size:.68rem;color:rgba(255,255,255,.4);margin-top:16px;}
+
+/* APP LAYOUT */
+#view-app{height:100vh;display:none;grid-template-columns:262px 1fr;}
+aside{background:linear-gradient(180deg,var(--navy-deep),var(--navy));color:#fff;padding:20px 15px;display:flex;flex-direction:column;justify-content:space-between;}
+.brand-area{display:flex;align-items:center;gap:12px;padding-bottom:18px;border-bottom:1px solid rgba(255,255,255,.12);margin-bottom:15px;}
+.brand-area .logo-img{width:42px;height:42px;}
+.brand-area .logo-badge{width:42px;height:42px;font-size:.82rem;}
+.brand-title h1{font-size:.92rem;letter-spacing:.4px;font-weight:800;}
+.brand-title span{font-size:.62rem;color:var(--gold-light);text-transform:uppercase;font-weight:700;letter-spacing:.5px;}
+.nav-menu{list-style:none;overflow-y:auto;max-height:calc(100vh - 150px);}
+.nav-link{display:flex;align-items:center;gap:12px;padding:10px 14px;color:#c7d2e3;border-radius:8px;margin-bottom:3px;
+  cursor:pointer;font-size:.86rem;font-weight:500;transition:.2s;text-decoration:none;}
+.nav-link i{width:18px;text-align:center;font-size:.88rem;color:var(--gold-light);}
+.nav-link.active,.nav-link:hover{background:rgba(201,162,39,.16);color:#fff;}
+.sidebar-foot{font-size:.68rem;color:#7d8ba3;text-align:center;padding-top:10px;border-top:1px solid rgba(255,255,255,.08);}
+
+main{display:flex;flex-direction:column;height:100vh;overflow-y:auto;background:var(--bg-main);}
+header{background:var(--card-bg);border-bottom:1px solid var(--border-color);padding:14px 30px;
+  display:flex;justify-content:space-between;align-items:center;box-shadow:0 1px 3px rgba(0,0,0,.03);position:sticky;top:0;z-index:50;}
+.user-profile-widget{display:flex;align-items:center;gap:12px;}
+.user-avatar{width:38px;height:38px;background:var(--navy);color:var(--gold-light);border-radius:50%;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:.8rem;}
+
+.content-container{padding:28px 30px;max-width:1400px;margin:0 auto;width:100%;}
+.hub-module{display:none;}
+.hub-module.active{display:block;}
+
+.metrics-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:18px;margin-bottom:24px;}
+.metric-card{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:18px;
+  box-shadow:0 1px 3px rgba(0,0,0,.03);display:flex;justify-content:space-between;align-items:flex-start;}
+.metric-card p{font-size:.72rem;color:var(--text-muted);font-weight:700;text-transform:uppercase;margin-bottom:6px;letter-spacing:.3px;}
+.metric-card h2{font-size:1.4rem;color:var(--text-main);font-weight:800;}
+.metric-icon{width:42px;height:42px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:1.05rem;flex-shrink:0;}
+
+.card-table{background:var(--card-bg);border:1px solid var(--border-color);border-radius:12px;padding:20px;margin-bottom:24px;box-shadow:0 1px 3px rgba(0,0,0,.03);}
+.card-table-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:15px;flex-wrap:wrap;gap:10px;}
+.card-table-header h3{font-size:.98rem;color:var(--navy);font-weight:800;}
+.card-table-header .subtitle{font-size:.75rem;color:var(--text-muted);margin-top:2px;}
+
+table{width:100%;border-collapse:collapse;text-align:left;}
+th{padding:11px;font-size:.7rem;text-transform:uppercase;color:var(--text-muted);background:#f8fafc;border-bottom:2px solid var(--border-color);font-weight:800;letter-spacing:.3px;white-space:nowrap;}
+td{padding:11px;font-size:.85rem;border-bottom:1px solid var(--border-color);color:#334155;}
+tr:hover td{background:#fbfbfd;}
+.table-scroll{overflow-x:auto;}
+
+.badge{padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
+.badge-green{background:var(--success-bg);color:var(--success-green);}
+.badge-amber{background:var(--warning-bg);color:var(--warning-amber);}
+.badge-red{background:var(--danger-bg);color:var(--danger-red);}
+
+.btn-main{background:var(--navy);color:var(--gold-light);border:none;padding:9px 16px;border-radius:7px;font-weight:700;cursor:pointer;font-size:.82rem;display:inline-flex;align-items:center;gap:6px;transition:.2s;}
+.btn-main:hover{background:var(--navy-hover);}
+.btn-secondary{background:#eef1f5;color:#334155;border:none;padding:7px 13px;border-radius:7px;font-weight:600;cursor:pointer;font-size:.78rem;}
+.btn-secondary:hover{background:#e2e8f0;}
+.btn-danger{background:var(--danger-bg);color:var(--danger-red);border:none;padding:7px 13px;border-radius:7px;font-weight:700;cursor:pointer;font-size:.78rem;}
+.btn-gold{background:var(--gold);color:#1c2733;border:none;padding:9px 16px;border-radius:7px;font-weight:800;cursor:pointer;font-size:.82rem;display:inline-flex;align-items:center;gap:6px;}
+.btn-gold:hover{background:var(--gold-light);}
+
+.form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:15px;}
+.form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:15px;}
+.form-grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:15px;margin-bottom:15px;}
+.form-box{background:#f8fafc;border:1px solid var(--border-color);padding:16px;border-radius:10px;margin-bottom:16px;}
+.form-box h4{font-size:.8rem;color:var(--navy);text-transform:uppercase;margin-bottom:12px;font-weight:800;border-bottom:2px solid var(--gold);padding-bottom:6px;letter-spacing:.3px;display:inline-block;}
+.field label{display:block;font-size:.76rem;font-weight:700;color:#475569;margin-bottom:4px;}
+
+.tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border-color);flex-wrap:wrap;}
+.tab-btn{padding:9px 16px;font-size:.8rem;font-weight:700;color:var(--text-muted);background:none;border:none;cursor:pointer;border-bottom:3px solid transparent;}
+.tab-btn.active{color:var(--navy);border-bottom-color:var(--gold);}
+.tab-content{display:none;}
+.tab-content.active{display:block;}
+
+.progress-bar-track{background:#e2e8f0;border-radius:10px;height:14px;width:100%;overflow:hidden;}
+.progress-bar-fill{height:100%;border-radius:10px;}
+
+.modal-overlay{position:fixed;inset:0;background:rgba(7,20,39,.72);display:none;justify-content:center;align-items:center;z-index:1000;padding:20px;}
+.modal-overlay.open{display:flex;}
+.modal-box{background:#fff;padding:26px;border-radius:14px;width:100%;max-width:820px;max-height:90vh;overflow-y:auto;color:var(--text-main);}
+.modal-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:18px;padding-bottom:12px;border-bottom:2px solid var(--gold);}
+.modal-header h3{color:var(--navy);font-size:1.05rem;font-weight:800;}
+.modal-close{background:none;border:none;font-size:1.1rem;cursor:pointer;color:var(--text-muted);}
+
+.chip-list{display:flex;flex-wrap:wrap;gap:8px;}
+.chip{background:#eef1f5;border-radius:20px;padding:6px 12px;font-size:.78rem;font-weight:600;color:#334155;}
+
+.status-dot{width:9px;height:9px;border-radius:50%;display:inline-block;margin-right:5px;}
+
+.file-drop{border:2px dashed var(--border-color);border-radius:10px;padding:18px;text-align:center;color:var(--text-muted);font-size:.8rem;cursor:pointer;background:#fbfcfe;}
+.file-drop:hover{border-color:var(--gold);color:var(--navy);}
+
+#toast{position:fixed;bottom:22px;right:22px;background:var(--navy-deep);color:#fff;padding:13px 20px;border-radius:9px;
+  border-left:4px solid var(--gold);display:none;z-index:2000;font-size:.88rem;box-shadow:0 10px 25px rgba(0,0,0,.25);max-width:320px;}
+
+.empty-state{text-align:center;padding:30px;color:var(--text-muted);font-size:.85rem;}
+.risk-list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:.85rem;}
+.risk-list-item:last-child{border-bottom:none;}
+
+@media(max-width:900px){
+  #view-app{grid-template-columns:1fr;}
+  aside{display:none;}
+  .form-grid-3,.form-grid-4,.form-grid-2{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<section id="view-login">
+  <div class="login-card">
+    <div class="logo-badge">JR</div>
+    <h2>INVERSIONES JORAN</h2>
+    <div class="tagline">Plataforma de gestión PyMEs</div>
+    <form onsubmit="realizarLogin(event)">
+      <div class="form-group">
+        <label>Rol de Usuario</label>
+        <select id="selectRol" class="form-control" required onchange="handleRolChange()">
+          <option value="" disabled selected>Seleccione rol...</option>
+          <option value="client">Cliente (Mi Negocio &amp; Finanzas)</option>
+          <option value="worker">Trabajador (Seguimientos &amp; Campo)</option>
+          <option value="admin">Administrador (Control General &amp; Reportes)</option>
+        </select>
+      </div>
+      <div class="form-group" id="grupo-entidad" style="display:none;">
+        <label id="label-entidad">Seleccione su negocio</label>
+        <select id="selectEntidad" class="form-control"></select>
+      </div>
+      <div class="form-group">
+        <label>Nombre de Usuario</label>
+        <input type="text" id="inputUsuario" class="form-control" required placeholder="Ingrese su nombre">
+      </div>
+      <div class="form-group">
+        <label>Contraseña</label>
+        <div class="password-field">
+          <input type="password" id="inputPassword" class="form-control" required placeholder="Ingrese su contraseña" style="padding-right:42px;">
+          <button type="button" class="password-toggle" onclick="togglePassword()"><i class="fa-solid fa-eye" id="password-eye"></i></button>
+        </div>
+      </div>
+      <button type="submit" class="btn-login"><i class="fa-solid fa-lock"></i> Acceder a la Plataforma</button>
+      <p class="login-hint">Prototipo de demostración — cualquier contraseña es válida.</p>
+    </form>
+  </div>
+</section>
+
+<div id="view-app">
+  <aside>
+    <div>
+      <div class="brand-area">
+        <div class="logo-badge">JR</div>
+        <div class="brand-title">
+          <h1>INVERSIONES JORAN</h1>
+          <span>Portal PyMEs</span>
+        </div>
+      </div>
+      <ul class="nav-menu" id="menuLateral"></ul>
+    </div>
+    <div class="sidebar-foot">JORAN S.A.S. &copy; 2026</div>
+  </aside>
+
+  <main>
+    <header>
+      <h2 id="titulo-pagina" style="font-size:1.1rem;font-weight:800;color:var(--navy);">Panel Principal</h2>
+      <div class="user-profile-widget">
+        <div class="user-avatar" id="header-avatar-initials">US</div>
+        <div>
+          <div id="header-user-name" style="font-size:.86rem;font-weight:700;">Usuario</div>
+          <div id="header-user-role" style="font-size:.7rem;color:var(--text-muted);">Rol</div>
+        </div>
+        <button onclick="cerrarSesion()" class="btn-secondary" style="margin-left:14px;color:var(--danger-red);"><i class="fa-solid fa-power-off"></i></button>
+      </div>
+    </header>
+    <div class="content-container" id="content-container"></div>
+  </main>
+</div>
+
+<div class="modal-overlay" id="modal-overlay">
+  <div class="modal-box" id="modal-box"></div>
+</div>
+
+<div id="toast"><span id="toast-msg">Notificación</span></div>
+
+<script>
+/* =========================================================
+   INVERSIONES JORAN - Lógica de la plataforma
+   ========================================================= */
+
+let SESSION = { rol: null, usuario: null, clienteId: null, trabajadorId: null };
+
+const DB = {
+  clientes: [],
+  trabajadores: [],
+  seguimientos: [],
+  usuarios: [],
+  categorias: ['Tienda de barrio', 'Panadería', 'Barbería', 'Papelería', 'Restaurante', 'Ferretería', 'Otro'],
+  parametros: { moneda: 'COP', periodoSeguimiento: 'Semanal', metaCumplimientoMinimo: 80, nombreEmpresa: 'INVERSIONES JORAN S.A.S.' },
+  solicitudesEdicion: [],
+  nextId: { cliente: 1, trabajador: 1, seguimiento: 1, usuario: 1, solicitud: 1 }
+};
+
+/* ---------------- Persistencia (localStorage) ---------------- */
+const ESTADO_KEY = 'joran_estado_v1';
+function guardarEstado() {
+  try { localStorage.setItem(ESTADO_KEY, JSON.stringify({ DB, SESSION })); } catch (e) { /* almacenamiento no disponible */ }
+}
+function cargarEstado() {
+  try {
+    const raw = localStorage.getItem(ESTADO_KEY);
+    if (!raw) return false;
+    const data = JSON.parse(raw);
+    if (data.DB) Object.assign(DB, data.DB);
+    if (data.SESSION) Object.assign(SESSION, data.SESSION);
+    return true;
+  } catch (e) { return false; }
+}
+
+/* ---------------- Utilidades ---------------- */
+function formatCOP(n) {
+  const num = Number(n) || 0;
+  const sign = num < 0 ? '-' : '';
+  return sign + '$ ' + Math.abs(Math.round(num)).toLocaleString('es-CO');
+}
+function fechaLarga(f) {
+  if (!f) return '-';
+  const d = new Date(f + 'T00:00:00');
+  if (isNaN(d)) return f;
+  return d.toLocaleDateString('es-CO', { day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+function estadoInfo(estado) {
+  const map = {
+    optimo: { label: 'Óptimo', cls: 'badge-green', dot: 'var(--success-green)', emoji: '🟢' },
+    atencion: { label: 'En Atención', cls: 'badge-amber', dot: 'var(--warning-amber)', emoji: '🟡' },
+    riesgo: { label: 'En Riesgo', cls: 'badge-red', dot: 'var(--danger-red)', emoji: '🔴' }
+  };
+  return map[estado] || map.optimo;
+}
+function badgeEstado(estado) {
+  const info = estadoInfo(estado);
+  return `<span class="badge ${info.cls}"><span class="status-dot" style="background:${info.dot}"></span>${info.label}</span>`;
+}
+function getCliente(id) { return DB.clientes.find(c => c.id === id); }
+function getTrabajador(id) { return DB.trabajadores.find(t => t.id === id); }
+function nombreTrabajador(id) { const t = getTrabajador(id); return t ? t.nombre : 'Trabajador eliminado'; }
+function nombreNegocio(id) { const c = getCliente(id); return c ? c.negocio.nombre : 'Negocio eliminado'; }
+function seguimientosDeCliente(id) { return DB.seguimientos.filter(s => s.clienteId === id).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
+function seguimientosDeTrabajador(id) { return DB.seguimientos.filter(s => s.trabajadorId === id).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
+function ultimoSeguimiento(clienteId) { const list = seguimientosDeCliente(clienteId); return list.length ? list[0] : null; }
+function el(id) { return document.getElementById(id); }
+
+function mostrarNotificacion(msg) {
+  const toast = el('toast');
+  el('toast-msg').innerText = msg;
+  toast.style.display = 'block';
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(() => toast.style.display = 'none', 3200);
+}
+
+function openModal(titleHtml, bodyHtml) {
+  el('modal-box').innerHTML = `
+    <div class="modal-header">
+      <h3>${titleHtml}</h3>
+      <button class="modal-close" onclick="closeModal()"><i class="fa-solid fa-xmark"></i></button>
+    </div>
+    ${bodyHtml}`;
+  el('modal-overlay').classList.add('open');
+}
+function closeModal() { el('modal-overlay').classList.remove('open'); guardarEstado(); }
+
+function switchTab(groupId, tabId, btn) {
+  document.querySelectorAll(`[data-tabgroup="${groupId}"]`).forEach(elx => elx.classList.remove('active'));
+  el(tabId).classList.add('active');
+  if (btn) {
+    const parent = btn.parentElement;
+    parent.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+}
+
+/* ---------------- LOGIN ---------------- */
+function handleRolChange() {
+  const rol = el('selectRol').value;
+  const grupo = el('grupo-entidad');
+  const label = el('label-entidad');
+  const select = el('selectEntidad');
+  const inputUsuario = el('inputUsuario');
+
+  if (rol === 'client') {
+    grupo.style.display = 'block';
+    label.innerText = 'Seleccione su negocio';
+    select.innerHTML = DB.clientes.length
+      ? DB.clientes.map(c => `<option value="${c.id}">${c.negocio.nombre} — ${c.nombre}</option>`).join('')
+      : `<option value="">No hay clientes registrados aún</option>`;
+    select.onchange = () => { const c = getCliente(Number(select.value)); if (c) inputUsuario.value = c.nombre; };
+    if (DB.clientes.length) inputUsuario.value = DB.clientes[0].nombre;
+  } else if (rol === 'worker') {
+    grupo.style.display = 'block';
+    label.innerText = 'Seleccione su perfil de trabajador';
+    select.innerHTML = DB.trabajadores.length
+      ? DB.trabajadores.map(t => `<option value="${t.id}">${t.nombre}</option>`).join('')
+      : `<option value="">No hay trabajadores registrados aún</option>`;
+    select.onchange = () => { const t = getTrabajador(Number(select.value)); if (t) inputUsuario.value = t.nombre; };
+    if (DB.trabajadores.length) inputUsuario.value = DB.trabajadores[0].nombre;
+  } else {
+    grupo.style.display = 'none';
+    select.innerHTML = '';
+    if (rol === 'admin' && !inputUsuario.value) inputUsuario.value = 'Administrador';
+  }
+}
+
+function togglePassword() {
+  const pass = el('inputPassword');
+  const eye = el('password-eye');
+  const isHidden = pass.type === 'password';
+  pass.type = isHidden ? 'text' : 'password';
+  eye.classList.toggle('fa-eye', !isHidden);
+  eye.classList.toggle('fa-eye-slash', isHidden);
+}
+
+function realizarLogin(e) {
+  e.preventDefault();
+  const rol = el('selectRol').value;
+  const usuario = el('inputUsuario').value.trim();
+  const password = el('inputPassword').value;
+
+  if (!rol) { mostrarNotificacion('Seleccione un rol'); return; }
+  if (!usuario) { mostrarNotificacion('Ingrese su nombre de usuario'); return; }
+  if (!password) { mostrarNotificacion('Por favor ingrese su contraseña'); return; }
+
+  if (rol === 'client' && !DB.clientes.length) { 
+    mostrarNotificacion('Aún no hay clientes registrados. Ingrese como Administrador para registrar el primero.'); 
+    return; 
+  }
+  if (rol === 'worker' && !DB.trabajadores.length) { 
+    mostrarNotificacion('Aún no hay trabajadores registrados. Ingrese como Administrador para registrar el primero.'); 
+    return; 
+  }
+
+  const entidadId = el('selectEntidad').value ? Number(el('selectEntidad').value) : null;
+
+  SESSION.rol = rol; 
+  SESSION.usuario = usuario;
+  SESSION.clienteId = rol === 'client' ? entidadId : null;
+  SESSION.trabajadorId = rol === 'worker' ? entidadId : null;
+
+  el('view-login').style.display = 'none';
+  el('view-app').style.display = 'grid';
+  el('header-user-name').innerText = usuario;
+  el('header-avatar-initials').innerText = usuario.substring(0, 2).toUpperCase();
+
+  if (rol === 'client') initClienteUI();
+  else if (rol === 'worker') initTrabajadorUI();
+  else if (rol === 'admin') initAdminUI();
+
+  guardarEstado();
+  mostrarNotificacion('Sesión iniciada con éxito');
+}
+
+function cerrarSesion() {
+  el('view-app').style.display = 'none';
+  el('view-login').style.display = 'flex';
+  el('content-container').innerHTML = '';
+  SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
+  guardarEstado();
+  mostrarNotificacion('Sesión finalizada');
+}
+
+function setMenu(items) {
+  const menu = el('menuLateral');
+  menu.innerHTML = items.map((it, i) =>
+    `<li><a class="nav-link${i === 0 ? ' active' : ''}" onclick="navegar('${it.id}', this)"><i class="fa-solid ${it.icon}"></i> ${it.label}</a></li>`
+  ).join('');
+}
+
+let CURRENT_ROLE_ROUTES = {};
+function navegar(id, elx) {
+  document.querySelectorAll('.nav-link').forEach(l => l.classList.remove('active'));
+  if (elx) elx.classList.add('active');
+  const route = CURRENT_ROLE_ROUTES[id];
+  if (!route) { mostrarNotificacion('Módulo en construcción'); return; }
+  el('titulo-pagina').innerText = route.titulo;
+  el('content-container').innerHTML = route.render();
+  if (route.after) route.after();
+  guardarEstado();
+}
+
+/* ---------------- Arranque de la aplicación ---------------- */
+function iniciarApp() {
+  const habiaEstado = cargarEstado();
+  const sesionValida = habiaEstado && SESSION.rol && (
+    (SESSION.rol === 'client' && getCliente(SESSION.clienteId)) ||
+    (SESSION.rol === 'worker' && getTrabajador(SESSION.trabajadorId)) ||
+    SESSION.rol === 'admin'
+  );
+  if (sesionValida) {
+    el('view-login').style.display = 'none';
+    el('view-app').style.display = 'grid';
+    el('header-user-name').innerText = SESSION.usuario || '';
+    el('header-avatar-initials').innerText = (SESSION.usuario || 'US').substring(0, 2).toUpperCase();
+    if (SESSION.rol === 'client') initClienteUI();
+    else if (SESSION.rol === 'worker') initTrabajadorUI();
+    else if (SESSION.rol === 'admin') initAdminUI();
+  } else {
+    SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
+  }
+  setInterval(guardarEstado, 1000);
+  window.addEventListener('beforeunload', guardarEstado);
+}
+document.addEventListener('DOMContentLoaded', iniciarApp);
+
+/* =========================================================
+   CLIENTE
+   ========================================================= */
+function initClienteUI() {
+  el('header-user-role').innerText = 'Cliente JORAN';
+  const c = getCliente(SESSION.clienteId);
+  if (!c) {
+    el('menuLateral').innerHTML = '';
+    el('titulo-pagina').innerText = 'Portal del Cliente';
+    el('content-container').innerHTML = `<div class="card-table"><div class="empty-state">No se encontró información de tu negocio. Contacta a tu asesor JORAN.</div></div>`;
+    return;
+  }
+  setMenu([
+    { id: 'c-inicio', label: 'Inicio', icon: 'fa-house' },
+    { id: 'c-negocio', label: 'Mi Negocio', icon: 'fa-store' },
+    { id: 'c-inversion', label: 'Mi Inversión', icon: 'fa-hand-holding-dollar' },
+    { id: 'c-finanzas', label: 'Mis Finanzas', icon: 'fa-wallet' },
+    { id: 'c-metas', label: 'Mis Metas', icon: 'fa-bullseye' },
+    { id: 'c-seguimientos', label: 'Seguimientos', icon: 'fa-list-check' },
+    { id: 'c-perfil', label: 'Mi Perfil', icon: 'fa-user' }
+  ]);
+  CURRENT_ROLE_ROUTES = {
+    'c-inicio': { titulo: `Portal del Cliente - ${c.negocio.nombre}`, render: () => renderClienteInicio(c) },
+    'c-negocio': { titulo: 'Mi Negocio', render: () => renderClienteNegocio(c) },
+    'c-inversion': { titulo: 'Mi Inversión', render: () => renderClienteInversion(c) },
+    'c-finanzas': { titulo: 'Mis Finanzas', render: () => renderClienteFinanzas(c) },
+    'c-metas': { titulo: 'Mis Metas', render: () => renderClienteMetas(c) },
+    'c-seguimientos': { titulo: 'Historial de Seguimientos', render: () => renderClienteSeguimientos(c) },
+    'c-perfil': { titulo: 'Mi Perfil', render: () => renderClientePerfil(c) }
+  };
+  navegar('c-inicio');
+}
+
+function renderClienteInicio(c) {
+  const r = c.resultados;
+  return `
+  <div style="background:linear-gradient(135deg,var(--navy-deep),var(--navy));color:#fff;padding:24px;border-radius:12px;margin-bottom:24px;border-left:5px solid var(--gold);display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:14px;">
+    <div>
+      <h3 style="font-size:1.2rem;margin-bottom:6px;">¡Bienvenido, ${c.nombre.split(' ')[0]}!</h3>
+      <p style="font-size:.86rem;color:#c7d2e3;">Este es el estado actual de ${c.negocio.nombre} y el seguimiento de JORAN.</p>
+    </div>
+    <div>${badgeEstado(c.estado)}</div>
+  </div>
+  <div class="metrics-row">
+    ${metricCard('fa-chart-line', 'var(--success-bg)', 'var(--success-green)', 'Ventas del Mes', formatCOP(r.ventas))}
+    ${metricCard('fa-receipt', 'var(--danger-bg)', 'var(--danger-red)', 'Gastos', formatCOP(r.gastos))}
+    ${metricCard('fa-wallet', 'var(--success-bg)', 'var(--success-green)', 'Utilidad', formatCOP(r.utilidad))}
+    ${metricCard('fa-boxes-stacked', '#eef1f5', '#475569', 'Inventario', formatCOP(r.inventario))}
+  </div>
+  <div class="metrics-row">
+    ${metricCard('fa-money-bill-transfer', 'var(--warning-bg)', 'var(--warning-amber)', 'Deudas', formatCOP(r.deudas))}
+    ${metricCard('fa-bullseye', '#e6ecf7', 'var(--navy)', 'Meta Mensual', formatCOP(r.metas), r.metas ? (Math.min(999, (r.ventas / r.metas) * 100)).toFixed(1) + '% cumplido' : null, 'var(--navy)')}
+    ${metricCard('fa-hand-holding-dollar', '#f6ecd0', 'var(--warning-amber)', 'Capital Recibido', formatCOP(c.inversion.recibido), c.inversion.tipo || null, 'var(--text-muted)')}
+    ${metricCard('fa-list-check', '#eef1f5', '#475569', 'Últ. Seguimiento', fechaLarga((ultimoSeguimiento(c.id) || {}).fecha), ultimoSeguimiento(c.id) ? 'Estado: ' + estadoInfo((ultimoSeguimiento(c.id) || { estado: 'optimo' }).estado).label : null, 'var(--text-muted)')}
+  </div>`;
+}
+
+function metricCard(icon, bg, color, label, value, sub, subcolor) {
+  return `<div class="metric-card"><div><p>${label}</p><h2>${value}</h2>${sub ? `<small style="color:${subcolor};font-size:.74rem;">${sub}</small>` : ''}</div><div class="metric-icon" style="background:${bg};color:${color};"><i class="fa-solid ${icon}"></i></div></div>`;
+}
+
+function renderClienteNegocio(c) {
+  const n = c.negocio;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Datos del Cliente</h3></div>
+    <div class="form-grid-3">
+      ${field('Nombre completo', c.nombre)}
+      ${field('Documento', c.documento)}
+      ${field('Teléfono', c.telefono)}
+    </div>
+    <div class="form-grid-2">
+      ${field('Correo', c.correo)}
+      ${field('Dirección', c.direccion)}
+    </div>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Datos del Negocio</h3>
+      <button class="btn-secondary" onclick="abrirModalSolicitarEdicion(${c.id})"><i class="fa-solid fa-pen"></i> Solicitar edición</button>
+    </div>
+    <div class="form-grid-3">
+      ${field('Nombre del negocio', n.nombre)}
+      ${field('Tipo de negocio', n.tipo)}
+      ${field('Ciudad', n.ciudad)}
+    </div>
+    <div class="form-grid-3">
+      ${field('Dirección', n.direccion)}
+      ${field('Fecha de inicio', fechaLarga(n.fechaInicio))}
+      ${field('Número de empleados', n.empleados)}
+    </div>
+    <div class="field"><label>Descripción</label><p style="font-size:.88rem;color:#334155;">${n.descripcion}</p></div>
+  </div>`;
+}
+
+function abrirModalSolicitarEdicion(clienteId) {
+  openModal('Solicitar Edición de Datos del Negocio', `
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px;">Describe el cambio que deseas solicitar. Un administrador de JORAN revisará tu solicitud y la marcará como atendida.</p>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Detalle de la solicitud</label>
+      <textarea class="form-control" rows="4" id="se-mensaje" placeholder="Ej: Actualizar dirección del negocio, corregir número de empleados, etc."></textarea>
+    </div>
+    <button class="btn-main" onclick="enviarSolicitudEdicion(${clienteId})"><i class="fa-solid fa-paper-plane"></i> Enviar Solicitud</button>
+  `);
+}
+function enviarSolicitudEdicion(clienteId) {
+  const mensaje = el('se-mensaje').value.trim();
+  if (!mensaje) { mostrarNotificacion('Describe el cambio que deseas solicitar'); return; }
+  const c = getCliente(clienteId);
+  DB.solicitudesEdicion.push({
+    id: DB.nextId.solicitud++,
+    clienteId,
+    clienteNombre: c ? c.nombre : 'Cliente eliminado',
+    negocioNombre: c ? c.negocio.nombre : '-',
+    mensaje,
+    fecha: new Date().toISOString().slice(0, 10),
+    estado: 'Pendiente'
+  });
+  closeModal();
+  mostrarNotificacion('Solicitud de edición enviada al Administrador');
+}
+function field(label, value) {
+  return `<div class="field"><label>${label}</label><p style="font-size:.88rem;color:#334155;font-weight:600;">${value !== undefined && value !== '' ? value : '-'}</p></div>`;
+}
+
+function renderClienteInversion(c) {
+  const i = c.inversion;
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Información de Inversión JORAN</h3>
+      <button class="btn-main" onclick="descargarContratoInversion(${c.id})"><i class="fa-solid fa-file-contract"></i> Ver contrato</button>
+    </div>
+    <div class="form-grid-3">
+      ${field('Capital solicitado', formatCOP(i.solicitado))}
+      ${field('Capital aprobado', formatCOP(i.aprobado))}
+      ${field('Capital recibido', formatCOP(i.recibido))}
+    </div>
+    <div class="form-grid-3">
+      ${field('Fecha de inversión', fechaLarga(i.fecha))}
+      ${field('Tipo de inversión', i.tipo)}
+      ${field('Participación de JORAN', i.participacion + '%')}
+    </div>
+    <div class="form-grid-2">
+      ${field('Estado de la inversión', i.estado)}
+      ${field('Rentabilidad acumulada', i.rentabilidad + '%')}
+    </div>
+    <div class="field"><label>Destino de la inversión</label><p style="font-size:.88rem;color:#334155;">${i.destino}</p></div>
+  </div>`;
+}
+
+function descargarContratoInversion(clienteId) {
+  const c = getCliente(clienteId);
+  if (!c) { mostrarNotificacion('No se encontró información del cliente'); return; }
+  const i = c.inversion;
+  const contenido =
+`RESUMEN DE CONTRATO DE INVERSIÓN
+${DB.parametros.nombreEmpresa}
+=====================================
+
+Cliente: ${c.nombre}
+Documento: ${c.documento || '-'}
+Negocio: ${c.negocio.nombre}
+
+Capital solicitado: ${formatCOP(i.solicitado)}
+Capital aprobado: ${formatCOP(i.aprobado)}
+Capital recibido: ${formatCOP(i.recibido)}
+
+Fecha de inversión: ${fechaLarga(i.fecha)}
+Tipo de inversión: ${i.tipo || '-'}
+Participación de JORAN: ${i.participacion}%
+Estado de la inversión: ${i.estado || '-'}
+Rentabilidad acumulada: ${i.rentabilidad}%
+
+Destino de la inversión:
+${i.destino || '-'}
+
+=====================================
+Este documento es un resumen informativo generado por la plataforma
+y no reemplaza el contrato legal firmado entre las partes.
+Generado el: ${fechaLarga(new Date().toISOString().slice(0, 10))}
+`;
+  const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Contrato_${c.negocio.nombre.replace(/\s+/g, '_')}.txt`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  mostrarNotificacion('Contrato descargado correctamente');
+}
+
+function renderClienteFinanzas(c) {
+  const r = c.resultados;
+  const hist = seguimientosDeCliente(c.id);
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Resultados Actuales del Negocio</h3></div>
+    <div class="metrics-row">
+      ${metricCard('fa-chart-line', 'var(--success-bg)', 'var(--success-green)', 'Ventas', formatCOP(r.ventas))}
+      ${metricCard('fa-receipt', 'var(--danger-bg)', 'var(--danger-red)', 'Gastos', formatCOP(r.gastos))}
+      ${metricCard('fa-wallet', 'var(--success-bg)', 'var(--success-green)', 'Utilidad', formatCOP(r.utilidad))}
+      ${metricCard('fa-boxes-stacked', '#eef1f5', '#475569', 'Inventario', formatCOP(r.inventario))}
+      ${metricCard('fa-money-bill-transfer', 'var(--warning-bg)', 'var(--warning-amber)', 'Deudas', formatCOP(r.deudas))}
+    </div>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Historial Financiero (por seguimiento)</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Semana</th><th>Fecha</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Estado</th></tr></thead>
+      <tbody>
+        ${hist.length ? hist.map(s => `<tr><td>${s.semana}</td><td>${fechaLarga(s.fecha)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">Aún no hay seguimientos registrados.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderClienteMetas(c) {
+  const r = c.resultados;
+  const pct = r.metas ? Math.min(100, (r.ventas / r.metas) * 100) : 0;
+  const hist = seguimientosDeCliente(c.id);
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Cumplimiento de Meta de Ventas</h3></div>
+    <p style="margin-bottom:10px;font-size:.9rem;">Meta de ventas mensual: <b>${formatCOP(r.metas)}</b> (Progreso: ${pct.toFixed(1)}%)</p>
+    <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct >= 80 ? 'var(--success-green)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-red)'};width:${pct}%;"></div></div>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Cumplimiento por Seguimiento Semanal</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Semana</th><th>Fecha</th><th>Cumplimiento de metas</th><th>Uso de la inversión</th></tr></thead>
+      <tbody>
+        ${hist.length ? hist.map(s => `<tr><td>${s.semana}</td><td>${fechaLarga(s.fecha)}</td><td>${s.cumplimientoMetas}</td><td>${s.usoInversion}</td></tr>`).join('') : `<tr><td colspan="4" class="empty-state">Sin registros aún.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderClienteSeguimientos(c) {
+  const hist = seguimientosDeCliente(c.id);
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Historial de Seguimientos Realizados por el Trabajador</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Semana</th><th>Fecha</th><th>Realizado por</th><th>Estado</th><th>Ventas</th><th>Utilidad</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${hist.length ? hist.map(s => `<tr><td>${s.semana}</td><td>${fechaLarga(s.fecha)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${badgeEstado(s.estado)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.utilidad)}</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty-state">Aún no tienes seguimientos registrados.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderClientePerfil(c) {
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Editar Mi Perfil</h3></div>
+    <div class="form-grid-3">
+      <div class="field"><label>Nombre completo</label><input class="form-control" value="${c.nombre}" id="perfil-nombre"></div>
+      <div class="field"><label>Teléfono</label><input class="form-control" value="${c.telefono}" id="perfil-telefono"></div>
+      <div class="field"><label>Correo</label><input class="form-control" value="${c.correo}" id="perfil-correo"></div>
+    </div>
+    <div class="field" style="margin-bottom:16px;"><label>Dirección</label><input class="form-control" value="${c.direccion}" id="perfil-direccion"></div>
+    <button class="btn-main" onclick="guardarPerfilCliente(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
+  </div>`;
+}
+function guardarPerfilCliente(id) {
+  const c = getCliente(id);
+  c.telefono = el('perfil-telefono').value;
+  c.correo = el('perfil-correo').value;
+  c.direccion = el('perfil-direccion').value;
+  mostrarNotificacion('Perfil actualizado correctamente');
+}
+
+/* =========================================================
+   TRABAJADOR
+   ========================================================= */
+function initTrabajadorUI() {
+  el('header-user-role').innerText = 'Trabajador JORAN';
+  const t = getTrabajador(SESSION.trabajadorId);
+  if (!t) {
+    el('menuLateral').innerHTML = '';
+    el('titulo-pagina').innerText = 'Panel de Trabajador';
+    el('content-container').innerHTML = `<div class="card-table"><div class="empty-state">No se encontró tu perfil de trabajador. Contacta al administrador.</div></div>`;
+    return;
+  }
+  setMenu([
+    { id: 'w-inicio', label: 'Nuevo Seguimiento', icon: 'fa-house' },
+    { id: 'w-negocios', label: 'Mis Negocios', icon: 'fa-store' },
+    { id: 'w-seguimientos', label: 'Seguimientos Realizados', icon: 'fa-list-check' },
+    { id: 'w-pendientes', label: 'Seguimientos Pendientes', icon: 'fa-clock' },
+    { id: 'w-perfil', label: 'Mi Perfil', icon: 'fa-user' }
+  ]);
+  CURRENT_ROLE_ROUTES = {
+    'w-inicio': { titulo: 'Nuevo Seguimiento Semanal en Campo', render: () => renderTrabajadorInicio(t) },
+    'w-negocios': { titulo: 'Negocios Asignados a mi Cargo', render: () => renderTrabajadorNegocios(t) },
+    'w-seguimientos': { titulo: 'Seguimientos Realizados', render: () => renderTrabajadorSeguimientos(t) },
+    'w-pendientes': { titulo: 'Seguimientos Pendientes', render: () => renderTrabajadorPendientes(t) },
+    'w-perfil': { titulo: 'Mi Perfil', render: () => renderTrabajadorPerfil(t) }
+  };
+  navegar('w-inicio');
+}
+
+function renderTrabajadorInicio(t) {
+  const negocios = t.negocios.map(id => getCliente(id)).filter(Boolean);
+  const hoy = new Date().toISOString().slice(0, 10);
+  resetEvidenciasTemp();
+
+  if (!negocios.length) {
+    return `<div class="card-table"><div class="empty-state">No tienes negocios asignados todavía. Contacta al administrador para que te asigne uno.</div></div>`;
+  }
+
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Datos del Cliente y Seguimiento Semanal</h3>
+      <button class="btn-main" onclick="guardarSeguimientoTrabajador(${t.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Seguimiento</button>
+    </div>
+
+    <div class="form-box">
+      <h4>Datos del Cliente</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Negocio</label>
+          <select class="form-control" id="seg-negocio">
+            ${negocios.map(c => `<option value="${c.id}">${c.negocio.nombre} — ${c.nombre}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Fecha</label><input type="date" class="form-control" id="seg-fecha" value="${hoy}"></div>
+        <div class="field"><label>Semana</label><input type="text" class="form-control" id="seg-semana" placeholder="Ej: Semana 19"></div>
+      </div>
+      <div class="field"><label>Tipo de seguimiento</label>
+        <select class="form-control" id="seg-tipo" style="max-width:220px;"><option>Presencial</option><option>Telefónico</option></select>
+      </div>
+    </div>
+
+    <div class="form-box">
+      <h4>Seguimiento Semanal — Información del Negocio</h4>
+      <div class="form-grid-4">
+        <div class="field"><label>Ventas de la semana</label><input type="number" class="form-control" id="seg-ventas" placeholder="0"></div>
+        <div class="field"><label>Gastos de la semana</label><input type="number" class="form-control" id="seg-gastos" placeholder="0"></div>
+        <div class="field"><label>Utilidad estimada</label><input type="number" class="form-control" id="seg-utilidad" placeholder="0"></div>
+        <div class="field"><label>Inventario aproximado</label><input type="number" class="form-control" id="seg-inventario" placeholder="0"></div>
+      </div>
+      <div class="form-grid-3">
+        <div class="field"><label>Flujo de caja</label><input type="number" class="form-control" id="seg-flujo" placeholder="0"></div>
+        <div class="field"><label>Clientes atendidos</label><input type="number" class="form-control" id="seg-clientes" placeholder="0"></div>
+        <div class="field"><label>Nuevos clientes</label><input type="number" class="form-control" id="seg-nuevosclientes" placeholder="0"></div>
+      </div>
+    </div>
+
+    <div class="form-box">
+      <h4>Evaluación</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Cumplimiento de metas</label><select class="form-control" id="seg-cumplimiento"><option>Parcial</option><option>Total</option><option>No cumplida</option></select></div>
+        <div class="field"><label>Uso de la inversión</label><select class="form-control" id="seg-usoinversion"><option>Adecuado</option><option>En revisión</option><option>Inadecuado</option></select></div>
+        <div class="field"><label>Estado del negocio</label>
+          <select class="form-control" id="seg-estado">
+            <option value="optimo">🟢 Óptimo</option>
+            <option value="atencion">🟡 En Atención</option>
+            <option value="riesgo">🔴 En Riesgo</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-grid-2" style="margin-bottom:12px;">
+        <div class="field"><label>Problemas encontrados</label><textarea class="form-control" rows="2" id="seg-problemas" placeholder="Describa los problemas encontrados"></textarea></div>
+        <div class="field"><label>Necesidades</label><textarea class="form-control" rows="2" id="seg-necesidades" placeholder="Describa las necesidades del negocio"></textarea></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><label>Recomendaciones</label><textarea class="form-control" rows="2" id="seg-recomendaciones" placeholder="Recomendaciones para el cliente"></textarea></div>
+        <div class="field"><label>Compromisos</label><textarea class="form-control" rows="2" id="seg-compromisos" placeholder="Compromisos adquiridos"></textarea></div>
+      </div>
+    </div>
+
+    <div class="form-box">
+      <h4>Evidencias</h4>
+      <div class="form-grid-3">
+        <div>
+          <input type="file" id="input-fotos" accept="image/*" multiple style="display:none" onchange="handleFileSelect(this,'fotos')">
+          <div class="file-drop" onclick="document.getElementById('input-fotos').click()"><i class="fa-solid fa-camera" style="font-size:1.3rem;margin-bottom:6px;display:block;"></i>Adjuntar Fotos</div>
+          <div id="preview-fotos" class="chip-list" style="margin-top:8px;"></div>
+        </div>
+        <div>
+          <input type="file" id="input-documentos" multiple style="display:none" onchange="handleFileSelect(this,'documentos')">
+          <div class="file-drop" onclick="document.getElementById('input-documentos').click()"><i class="fa-solid fa-file" style="font-size:1.3rem;margin-bottom:6px;display:block;"></i>Adjuntar Documentos</div>
+          <div id="preview-documentos" class="chip-list" style="margin-top:8px;"></div>
+        </div>
+        <div>
+          <input type="file" id="input-facturas" multiple style="display:none" onchange="handleFileSelect(this,'facturas')">
+          <div class="file-drop" onclick="document.getElementById('input-facturas').click()"><i class="fa-solid fa-receipt" style="font-size:1.3rem;margin-bottom:6px;display:block;"></i>Adjuntar Facturas</div>
+          <div id="preview-facturas" class="chip-list" style="margin-top:8px;"></div>
+        </div>
+      </div>
+      <div class="field" style="margin-top:12px;"><label>Observaciones</label><textarea class="form-control" rows="2" id="seg-observaciones" placeholder="Observaciones generales de la visita"></textarea></div>
+    </div>
+  </div>`;
+}
+
+/* ---------------- Evidencias ---------------- */
+let EVID_TEMP = { fotos: [], documentos: [], facturas: [] };
+function resetEvidenciasTemp() { EVID_TEMP = { fotos: [], documentos: [], facturas: [] }; }
+
+function handleFileSelect(inputEl, tipo) {
+  const files = Array.from(inputEl.files || []);
+  if (!files.length) return;
+  const lecturas = files.map(file => new Promise(resolve => {
+    const reader = new FileReader();
+    reader.onload = () => resolve({ name: file.name, dataUrl: reader.result, isImage: file.type.startsWith('image/') });
+    reader.readAsDataURL(file);
+  }));
+  Promise.all(lecturas).then(items => {
+    EVID_TEMP[tipo] = EVID_TEMP[tipo].concat(items);
+    renderEvidenciaPreview(tipo);
+    inputEl.value = '';
+  });
+}
+
+function renderEvidenciaPreview(tipo) {
+  const cont = el('preview-' + tipo);
+  if (!cont) return;
+  cont.innerHTML = EVID_TEMP[tipo].map((item, i) => {
+    if (item.isImage) {
+      return `<span class="chip" style="display:inline-flex;align-items:center;gap:6px;padding:4px 8px 4px 4px;">
+        <img src="${item.dataUrl}" style="width:28px;height:28px;object-fit:cover;border-radius:5px;">
+        ${item.name.length > 14 ? item.name.slice(0, 12) + '…' : item.name}
+        <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--danger-red);" onclick="removeEvidenciaItem('${tipo}',${i})"></i>
+      </span>`;
+    }
+    return `<span class="chip"><i class="fa-solid fa-paperclip"></i> ${item.name.length > 18 ? item.name.slice(0, 16) + '…' : item.name}
+      <i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--danger-red);margin-left:4px;" onclick="removeEvidenciaItem('${tipo}',${i})"></i></span>`;
+  }).join('') || '<span style="font-size:.75rem;color:var(--text-muted);">Sin archivos adjuntos</span>';
+}
+
+function removeEvidenciaItem(tipo, idx) {
+  EVID_TEMP[tipo].splice(idx, 1);
+  renderEvidenciaPreview(tipo);
+}
+
+function guardarSeguimientoTrabajador(trabajadorId) {
+  if (!el('seg-semana').value.trim()) { mostrarNotificacion('Por favor indique la semana del seguimiento'); return; }
+  const nuevo = {
+    id: DB.nextId.seguimiento++,
+    clienteId: Number(el('seg-negocio').value),
+    trabajadorId: trabajadorId,
+    fecha: el('seg-fecha').value,
+    semana: el('seg-semana').value,
+    tipo: el('seg-tipo').value,
+    ventas: Number(el('seg-ventas').value) || 0,
+    gastos: Number(el('seg-gastos').value) || 0,
+    utilidad: Number(el('seg-utilidad').value) || 0,
+    inventario: Number(el('seg-inventario').value) || 0,
+    flujoCaja: Number(el('seg-flujo').value) || 0,
+    clientesAtendidos: Number(el('seg-clientes').value) || 0,
+    nuevosClientes: Number(el('seg-nuevosclientes').value) || 0,
+    cumplimientoMetas: el('seg-cumplimiento').value,
+    usoInversion: el('seg-usoinversion').value,
+    problemas: el('seg-problemas').value,
+    necesidades: el('seg-necesidades').value,
+    estado: el('seg-estado').value,
+    recomendaciones: el('seg-recomendaciones').value,
+    compromisos: el('seg-compromisos').value,
+    evidencias: { fotos: EVID_TEMP.fotos, documentos: EVID_TEMP.documentos, facturas: EVID_TEMP.facturas, observaciones: el('seg-observaciones').value }
+  };
+  DB.seguimientos.unshift(nuevo);
+  const cli = getCliente(nuevo.clienteId);
+  if (cli) {
+    cli.estado = nuevo.estado;
+    cli.resultados.ventas = nuevo.ventas;
+    cli.resultados.gastos = nuevo.gastos;
+    cli.resultados.utilidad = nuevo.utilidad;
+    cli.resultados.inventario = nuevo.inventario;
+  }
+  resetEvidenciasTemp();
+  mostrarNotificacion('¡Seguimiento semanal guardado correctamente!');
+  navegar('w-inicio');
+}
+
+function renderTrabajadorNegocios(t) {
+  const negocios = t.negocios.map(id => getCliente(id)).filter(Boolean);
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Negocios Asignados a mi Cargo</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Negocio</th><th>Titular</th><th>Teléfono</th><th>Ciudad</th><th>Estado</th><th>Último Seguimiento</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${negocios.map(c => {
+          const u = ultimoSeguimiento(c.id);
+          return `<tr><td><b>${c.negocio.nombre}</b></td><td>${c.nombre}</td><td>${c.telefono}</td><td>${c.negocio.ciudad}</td><td>${badgeEstado(c.estado)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td><td><button class="btn-main" onclick="navegar('w-inicio'); setTimeout(() => { if(document.getElementById('seg-negocio')) document.getElementById('seg-negocio').value=${c.id}; }, 50);">Reportar</button></td></tr>`;
+        }).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderTrabajadorSeguimientos(t) {
+  const hist = seguimientosDeTrabajador(t.id);
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Seguimientos que He Realizado</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Semana</th><th>Negocio</th><th>Estado</th><th>Ventas</th><th>Utilidad</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${hist.length ? hist.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${s.semana}</td><td>${nombreNegocio(s.clienteId)}</td><td>${badgeEstado(s.estado)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.utilidad)}</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty-state">Aún no has registrado seguimientos.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderTrabajadorPendientes(t) {
+  const semanaActual = 'Semana 19';
+  const pendientes = t.negocios.map(id => getCliente(id)).filter(c => c && !DB.seguimientos.some(s => s.clienteId === c.id && s.semana === semanaActual));
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Seguimientos Pendientes — ${semanaActual}</h3><span class="subtitle">Negocios asignados que aún no tienen seguimiento registrado esta semana</span></div>
+    ${pendientes.length ? pendientes.map(c => `
+      <div class="risk-list-item">
+        <div><b>${c.negocio.nombre}</b> — ${c.nombre}<br><small style="color:var(--text-muted);">${c.telefono} · ${c.negocio.ciudad}</small></div>
+        <button class="btn-gold" onclick="navegar('w-inicio')">Reportar ahora</button>
+      </div>`).join('') : `<div class="empty-state"><i class="fa-solid fa-circle-check" style="font-size:1.6rem;color:var(--success-green);display:block;margin-bottom:8px;"></i>¡Estás al día! No tienes seguimientos pendientes esta semana.</div>`}
+  </div>`;
+}
+
+function renderTrabajadorPerfil(t) {
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Mi Perfil</h3></div>
+    <div class="form-grid-3">
+      ${field('Nombre', t.nombre)}
+      ${field('Teléfono', t.telefono)}
+      ${field('Negocios asignados', t.negocios.length)}
+    </div>
+  </div>`;
+}
+
+/* ---------------- Detalle de seguimiento (modal) ---------------- */
+function verSeguimientoDetalle(id) {
+  const s = DB.seguimientos.find(x => x.id === id);
+  if (!s) return;
+  const c = getCliente(s.clienteId);
+  const tr = getTrabajador(s.trabajadorId);
+  openModal(`Seguimiento ${s.semana} — ${c ? c.negocio.nombre : 'Negocio'}`, `
+    <div class="form-grid-3" style="margin-bottom:6px;">
+      ${field('Fecha', fechaLarga(s.fecha))}
+      ${field('Tipo', s.tipo)}
+      ${field('Realizado por', tr ? tr.nombre : 'Desconocido')}
+    </div>
+    <div class="form-box">
+      <h4>Cifras de la Semana</h4>
+      <div class="form-grid-4">
+        ${field('Ventas', formatCOP(s.ventas))}
+        ${field('Gastos', formatCOP(s.gastos))}
+        ${field('Utilidad', formatCOP(s.utilidad))}
+        ${field('Inventario', formatCOP(s.inventario))}
+      </div>
+      <div class="form-grid-3">
+        ${field('Flujo de caja', formatCOP(s.flujoCaja))}
+        ${field('Clientes atendidos', s.clientesAtendidos)}
+        ${field('Nuevos clientes', s.nuevosClientes)}
+      </div>
+    </div>
+    <div class="form-box">
+      <h4>Evaluación</h4>
+      <div class="form-grid-3">
+        ${field('Cumplimiento de metas', s.cumplimientoMetas)}
+        ${field('Uso de la inversión', s.usoInversion)}
+        ${field('Estado del negocio', badgeEstado(s.estado))}
+      </div>
+      <div class="form-grid-2">
+        ${field('Problemas encontrados', s.problemas)}
+        ${field('Necesidades', s.necesidades)}
+      </div>
+      <div class="form-grid-2">
+        ${field('Recomendaciones', s.recomendaciones)}
+        ${field('Compromisos', s.compromisos)}
+      </div>
+    </div>
+    <div class="form-box" style="margin-bottom:0;">
+      <h4>Evidencias</h4>
+      ${renderEvidenciasDetalle(s.evidencias || {})}
+      ${field('Observaciones', s.evidencias ? s.evidencias.observaciones : '')}
+    </div>
+  `);
+}
+
+function renderEvidenciasDetalle(ev) {
+  const fotos = ev.fotos || [];
+  const documentos = ev.documentos || [];
+  const facturas = ev.facturas || [];
+  if (!fotos.length && !documentos.length && !facturas.length) {
+    return `<p style="font-size:.8rem;color:var(--text-muted);margin-bottom:10px;">No se adjuntaron evidencias en este seguimiento.</p>`;
+  }
+  let html = '';
+  if (fotos.length) {
+    html += `<p style="font-size:.76rem;font-weight:700;color:var(--navy);margin-bottom:6px;">Fotos (${fotos.length})</p>
+      <div style="display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;">
+        ${fotos.map(f => `<a href="${f.dataUrl}" target="_blank" title="${f.name}"><img src="${f.dataUrl}" style="width:64px;height:64px;object-fit:cover;border-radius:8px;border:1px solid var(--border-color);"></a>`).join('')}
+      </div>`;
+  }
+  if (documentos.length) {
+    html += `<p style="font-size:.76rem;font-weight:700;color:var(--navy);margin-bottom:6px;">Documentos (${documentos.length})</p>
+      <div class="chip-list" style="margin-bottom:12px;">
+        ${documentos.map(d => `<a href="${d.dataUrl}" target="_blank" download="${d.name}" class="chip" style="text-decoration:none;color:#334155;"><i class="fa-solid fa-file"></i> ${d.name}</a>`).join('')}
+      </div>`;
+  }
+  if (facturas.length) {
+    html += `<p style="font-size:.76rem;font-weight:700;color:var(--navy);margin-bottom:6px;">Facturas (${facturas.length})</p>
+      <div class="chip-list" style="margin-bottom:12px;">
+        ${facturas.map(fa => `<a href="${fa.dataUrl}" target="_blank" download="${fa.name}" class="chip" style="text-decoration:none;color:#334155;"><i class="fa-solid fa-receipt"></i> ${fa.name}</a>`).join('')}
+      </div>`;
+  }
+  return html;
+}
+
+/* =========================================================
+   ADMINISTRADOR
+   ========================================================= */
+function initAdminUI() {
+  el('header-user-role').innerText = 'Administrador General';
+  setMenu([
+    { id: 'a-dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
+    { id: 'a-clientes', label: 'Clientes', icon: 'fa-users' },
+    { id: 'a-trabajadores', label: 'Trabajadores', icon: 'fa-user-tie' },
+    { id: 'a-inversiones', label: 'Inversiones', icon: 'fa-hand-holding-dollar' },
+    { id: 'a-seguimientos', label: 'Seguimientos', icon: 'fa-list-check' },
+    { id: 'a-reportes', label: 'Reportes', icon: 'fa-file-lines' },
+    { id: 'a-configuracion', label: 'Configuración', icon: 'fa-gear' }
+  ]);
+  CURRENT_ROLE_ROUTES = {
+    'a-dashboard': { titulo: 'Dashboard General - INVERSIONES JORAN', render: renderAdminDashboard, after: afterAdminDashboard },
+    'a-clientes': { titulo: 'Directorio General de Clientes', render: renderAdminClientes },
+    'a-trabajadores': { titulo: 'Gestión de Trabajadores', render: renderAdminTrabajadores },
+    'a-inversiones': { titulo: 'Gestión de Inversiones', render: renderAdminInversiones },
+    'a-seguimientos': { titulo: 'Todos los Seguimientos', render: renderAdminSeguimientos },
+    'a-reportes': { titulo: 'Reportes y Analítica', render: renderAdminReportes, after: afterAdminReportes },
+    'a-configuracion': { titulo: 'Configuración del Sistema', render: renderAdminConfiguracion }
+  };
+  navegar('a-dashboard');
+}
+
+function adminStats() {
+  const clientes = DB.clientes;
+  const capitalInvertido = clientes.reduce((a, c) => a + (c.inversion ? c.inversion.aprobado : 0), 0);
+  const negociosActivos = clientes.length;
+  const negociosRiesgo = clientes.filter(c => c.estado === 'riesgo').length;
+  const negociosAtencion = clientes.filter(c => c.estado === 'atencion').length;
+  const negociosOptimos = clientes.filter(c => c.estado === 'optimo').length;
+  const utilidadGenerada = clientes.reduce((a, c) => a + (c.resultados ? c.resultados.utilidad : 0), 0);
+  const seguimientosRealizados = DB.seguimientos.length;
+  const semanaActual = 'Semana 19';
+  const totalAsignados = DB.trabajadores.reduce((a, t) => a + (t.negocios ? t.negocios.length : 0), 0);
+  const hechosEstaSemana = new Set(DB.seguimientos.filter(s => s.semana === semanaActual).map(s => s.clienteId)).size;
+  const seguimientosPendientes = totalAsignados - hechosEstaSemana;
+  return { capitalInvertido, negociosActivos, negociosRiesgo, negociosAtencion, negociosOptimos, utilidadGenerada, seguimientosRealizados, seguimientosPendientes: Math.max(0, seguimientosPendientes) };
+}
+
+function renderAdminDashboard() {
+  const st = adminStats();
+  const recientes = [...DB.seguimientos].sort((a, b) => b.fecha.localeCompare(a.fecha)).slice(0, 6);
+  return `
+  <div class="metrics-row">
+    ${metricCard('fa-wallet', 'var(--success-bg)', 'var(--success-green)', 'Capital Invertido', formatCOP(st.capitalInvertido))}
+    ${metricCard('fa-store', '#e6ecf7', 'var(--navy)', 'Negocios Activos', st.negociosActivos)}
+    ${metricCard('fa-triangle-exclamation', 'var(--danger-bg)', 'var(--danger-red)', 'Negocios en Riesgo', st.negociosRiesgo)}
+    ${metricCard('fa-chart-pie', 'var(--success-bg)', 'var(--success-green)', 'Utilidad Generada', formatCOP(st.utilidadGenerada), 'Este mes', 'var(--success-green)')}
+  </div>
+  <div class="metrics-row">
+    ${metricCard('fa-clipboard-check', 'var(--warning-bg)', 'var(--warning-amber)', 'Seguimientos Realizados', st.seguimientosRealizados)}
+    ${metricCard('fa-clock', 'var(--danger-bg)', 'var(--danger-red)', 'Seguimientos Pendientes', st.seguimientosPendientes, 'Semana 19', 'var(--danger-red)')}
+    ${metricCard('fa-users', '#e6ecf7', 'var(--navy)', 'Total de Inversiones', DB.clientes.length)}
+    ${metricCard('fa-user-tie', '#eef1f5', '#475569', 'Trabajadores Activos', DB.trabajadores.length)}
+  </div>
+  <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;">
+    <div class="card-table">
+      <div class="card-table-header"><h3>Estado de los Negocios</h3></div>
+      <div style="max-width:220px;margin:0 auto;"><canvas id="chart-estado-negocios"></canvas></div>
+      <div style="text-align:center;margin-top:14px;font-size:.85rem;">
+        <p>🟢 Óptimo: <b>${st.negociosOptimos}</b></p>
+        <p>🟡 En Atención: <b>${st.negociosAtencion}</b></p>
+        <p>🔴 En Riesgo: <b>${st.negociosRiesgo}</b></p>
+      </div>
+    </div>
+    <div class="card-table">
+      <div class="card-table-header"><h3>Seguimientos Recientes</h3></div>
+      <div class="table-scroll"><table>
+        <thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Estado</th><th>Ventas</th></tr></thead>
+        <tbody>
+          ${recientes.length ? recientes.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${badgeEstado(s.estado)}</td><td>${formatCOP(s.ventas)}</td></tr>`).join('') : `<tr><td colspan="5" class="empty-state">Aún no hay seguimientos registrados.</td></tr>`}
+        </tbody>
+      </table></div>
+    </div>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Solicitudes de Edición de Clientes</h3></div>
+    <div class="table-scroll" id="tabla-solicitudes-edicion">${tablaSolicitudesEdicion()}</div>
+  </div>`;
+}
+
+function tablaSolicitudesEdicion() {
+  const list = [...DB.solicitudesEdicion].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return `<table>
+    <thead><tr><th>Fecha</th><th>Cliente</th><th>Negocio</th><th>Solicitud</th><th>Estado</th><th></th></tr></thead>
+    <tbody>${list.length ? list.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${s.clienteNombre}</td><td>${s.negocioNombre}</td><td>${s.mensaje}</td><td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : '<span class="badge badge-green">Atendida</span>'}</td><td>${s.estado === 'Pendiente' ? `<button class="btn-secondary" onclick="atenderSolicitudEdicion(${s.id})">Marcar como atendida</button>` : ''}</td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">No hay solicitudes de edición registradas.</td></tr>`}</tbody>
+  </table>`;
+}
+
+function atenderSolicitudEdicion(id) {
+  const s = DB.solicitudesEdicion.find(x => x.id === id);
+  if (!s) return;
+  s.estado = 'Atendida';
+  el('tabla-solicitudes-edicion').innerHTML = tablaSolicitudesEdicion();
+  mostrarNotificacion('Solicitud marcada como atendida');
+}
+
+function afterAdminDashboard() {
+  const st = adminStats();
+  const ctx = document.getElementById('chart-estado-negocios');
+  if (ctx && window.Chart) {
+    new Chart(ctx, {
+      type: 'doughnut',
+      data: {
+        labels: ['Óptimo', 'En Atención', 'En Riesgo'],
+        datasets: [{ data: [st.negociosOptimos, st.negociosAtencion, st.negociosRiesgo], backgroundColor: ['#0f9d58', '#b8860b', '#c0392b'] }]
+      },
+      options: { plugins: { legend: { display: false } } }
+    });
+  }
+}
+
+function renderAdminClientes() {
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Directorio General de Clientes</h3>
+      <button class="btn-main" onclick="abrirModalRegistrarCliente()"><i class="fa-solid fa-user-plus"></i> Registrar Cliente</button>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Cliente</th><th>Documento</th><th>Negocio</th><th>Ciudad</th><th>Teléfono</th><th>Capital Aprobado</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${DB.clientes.length ? DB.clientes.map(c => `<tr><td><b>${c.nombre}</b></td><td>${c.documento}</td><td>${c.negocio.nombre}</td><td>${c.negocio.ciudad}</td><td>${c.telefono}</td><td>${formatCOP(c.inversion.aprobado)}</td><td>${badgeEstado(c.estado)}</td><td style="display:flex;gap:6px;"><button class="btn-secondary" onclick="verClienteDetalle(${c.id})">Ver</button><button class="btn-danger" onclick="eliminarCliente(${c.id})" title="Eliminar cliente"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="8" class="empty-state">Aún no hay clientes registrados. Usa "Registrar Cliente" para agregar el primero.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function abrirModalRegistrarCliente() {
+  openModal('Registrar Nuevo Cliente', `
+    <div class="form-box"><h4>Datos del Cliente</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Nombre completo</label><input class="form-control" id="nc-nombre"></div>
+        <div class="field"><label>Documento</label><input class="form-control" id="nc-documento"></div>
+        <div class="field"><label>Teléfono</label><input class="form-control" id="nc-telefono"></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><label>Correo</label><input class="form-control" id="nc-correo"></div>
+        <div class="field"><label>Dirección</label><input class="form-control" id="nc-direccion"></div>
+      </div>
+    </div>
+    <div class="form-box"><h4>Datos del Negocio</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Nombre del negocio</label><input class="form-control" id="nc-negnombre"></div>
+        <div class="field"><label>Tipo de negocio</label>
+          <select class="form-control" id="nc-negtipo">${DB.categorias.map(cat => `<option>${cat}</option>`).join('')}</select>
+        </div>
+        <div class="field"><label>Ciudad</label><input class="form-control" id="nc-ciudad" placeholder="Ciudad"></div>
+      </div>
+      <div class="form-grid-3">
+        <div class="field"><label>Dirección</label><input class="form-control" id="nc-negdireccion"></div>
+        <div class="field"><label>Fecha de inicio</label><input type="date" class="form-control" id="nc-fechainicio"></div>
+        <div class="field"><label>N° empleados</label><input type="number" class="form-control" id="nc-empleados" placeholder="1"></div>
+      </div>
+      <div class="field"><label>Descripción</label><textarea class="form-control" rows="2" id="nc-descripcion"></textarea></div>
+    </div>
+    <div class="form-box" style="margin-bottom:12px;"><h4>Información de Inversión</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Capital solicitado</label><input type="number" class="form-control" id="nc-solicitado"></div>
+        <div class="field"><label>Capital aprobado</label><input type="number" class="form-control" id="nc-aprobado"></div>
+        <div class="field"><label>Capital recibido</label><input type="number" class="form-control" id="nc-recibido"></div>
+      </div>
+      <div class="form-grid-3">
+        <div class="field"><label>Fecha de inversión</label><input type="date" class="form-control" id="nc-fechainversion"></div>
+        <div class="field"><label>Tipo de inversión</label><input class="form-control" id="nc-tipoinversion" placeholder="Ej: Capital semilla"></div>
+        <div class="field"><label>Participación JORAN (%)</label><input type="number" class="form-control" id="nc-participacion" placeholder="0"></div>
+      </div>
+      <div class="field"><label>Destino de la inversión</label><textarea class="form-control" rows="2" id="nc-destino"></textarea></div>
+    </div>
+    <button class="btn-main" onclick="guardarNuevoCliente()"><i class="fa-solid fa-floppy-disk"></i> Registrar Cliente</button>
+  `);
+}
+
+function guardarNuevoCliente() {
+  const id = DB.nextId.cliente++;
+  DB.clientes.push({
+    id, 
+    nombre: el('nc-nombre').value || 'Nuevo Cliente', 
+    documento: el('nc-documento').value, 
+    telefono: el('nc-telefono').value,
+    correo: el('nc-correo').value, 
+    direccion: el('nc-direccion').value,
+    negocio: { 
+      nombre: el('nc-negnombre').value || 'Nuevo Negocio', 
+      tipo: el('nc-negtipo').value, 
+      direccion: el('nc-negdireccion').value, 
+      ciudad: el('nc-ciudad').value, 
+      fechaInicio: el('nc-fechainicio').value, 
+      descripcion: el('nc-descripcion').value, 
+      empleados: Number(el('nc-empleados').value) || 1 
+    },
+    inversion: { 
+      solicitado: Number(el('nc-solicitado').value) || 0, 
+      aprobado: Number(el('nc-aprobado').value) || 0, 
+      recibido: Number(el('nc-recibido').value) || 0, 
+      fecha: el('nc-fechainversion').value, 
+      tipo: el('nc-tipoinversion').value, 
+      participacion: Number(el('nc-participacion').value) || 0, 
+      destino: el('nc-destino').value, 
+      estado: 'Activa', 
+      rentabilidad: 0 
+    },
+    resultados: { ventas: 0, gastos: 0, utilidad: 0, inventario: 0, deudas: 0, metas: 0 },
+    estado: 'optimo'
+  });
+  closeModal();
+  mostrarNotificacion('Cliente registrado correctamente');
+  navegar('a-clientes');
+}
+
+function eliminarCliente(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  if (!confirm(`¿Eliminar a ${c.nombre} y su negocio "${c.negocio.nombre}"? Esta acción también eliminará sus seguimientos y no se puede deshacer.`)) return;
+  DB.clientes = DB.clientes.filter(x => x.id !== id);
+  DB.seguimientos = DB.seguimientos.filter(s => s.clienteId !== id);
+  DB.trabajadores.forEach(t => { t.negocios = t.negocios.filter(nid => nid !== id); });
+  closeModal();
+  mostrarNotificacion('Cliente eliminado correctamente');
+  navegar('a-clientes');
+}
+
+function verClienteDetalle(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  const hist = seguimientosDeCliente(id);
+  const gid = 'cli-detalle-' + id;
+  openModal(`${c.nombre} — ${c.negocio.nombre}`, `
+    <div class="tabs">
+      <button class="tab-btn active" onclick="switchTab('${gid}','${gid}-negocio', this)">Negocio</button>
+      <button class="tab-btn" onclick="switchTab('${gid}','${gid}-financiera', this)">Info. Financiera</button>
+      <button class="tab-btn" onclick="switchTab('${gid}','${gid}-historial', this)">Historial</button>
+    </div>
+    <div class="tab-content active" id="${gid}-negocio" data-tabgroup="${gid}">
+      <div class="form-grid-3">
+        ${field('Documento', c.documento)} ${field('Teléfono', c.telefono)} ${field('Correo', c.correo)}
+      </div>
+      <div class="form-grid-3">
+        ${field('Tipo de negocio', c.negocio.tipo)} ${field('Ciudad', c.negocio.ciudad)} ${field('N° empleados', c.negocio.empleados)}
+      </div>
+      ${field('Dirección', c.negocio.direccion)}
+      ${field('Descripción', c.negocio.descripcion)}
+    </div>
+    <div class="tab-content" id="${gid}-financiera" data-tabgroup="${gid}">
+      <div class="form-box"><h4>Inversión</h4>
+        <div class="form-grid-3">
+          ${field('Aprobado', formatCOP(c.inversion.aprobado))} ${field('Recibido', formatCOP(c.inversion.recibido))} ${field('Participación', c.inversion.participacion + '%')}
+        </div>
+        <div class="form-grid-3">
+          ${field('Estado', c.inversion.estado)} ${field('Rentabilidad', c.inversion.rentabilidad + '%')} ${field('Fecha', fechaLarga(c.inversion.fecha))}
+        </div>
+      </div>
+      <div class="form-box" style="margin-bottom:0;"><h4>Resultados</h4>
+        <div class="form-grid-4">
+          ${field('Ventas', formatCOP(c.resultados.ventas))} ${field('Gastos', formatCOP(c.resultados.gastos))} ${field('Utilidad', formatCOP(c.resultados.utilidad))} ${field('Deudas', formatCOP(c.resultados.deudas))}
+        </div>
+      </div>
+    </div>
+    <div class="tab-content" id="${gid}-historial" data-tabgroup="${gid}">
+      <div class="table-scroll"><table>
+        <thead><tr><th>Semana</th><th>Fecha</th><th>Estado</th><th>Ventas</th><th>Utilidad</th><th></th></tr></thead>
+        <tbody>${hist.length ? hist.map(s => `<tr><td>${s.semana}</td><td>${fechaLarga(s.fecha)}</td><td>${badgeEstado(s.estado)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.utilidad)}</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">Sin seguimientos.</td></tr>`}</tbody>
+      </table></div>
+    </div>
+    <div style="margin-top:18px;text-align:right;">
+      <button class="btn-danger" onclick="eliminarCliente(${c.id})"><i class="fa-solid fa-trash"></i> Eliminar Cliente</button>
+    </div>
+  `);
+}
+
+function renderAdminTrabajadores() {
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Trabajadores de Campo</h3>
+      <button class="btn-main" onclick="abrirModalRegistrarTrabajador()"><i class="fa-solid fa-user-plus"></i> Registrar Trabajador</button>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Nombre</th><th>Teléfono</th><th>Negocios Asignados</th><th>Seguimientos Realizados</th><th>Acción</th></tr></thead>
+      <tbody>
+        ${DB.trabajadores.length ? DB.trabajadores.map(t => `<tr><td><b>${t.nombre}</b></td><td>${t.telefono}</td><td>${t.negocios ? t.negocios.length : 0}</td><td>${seguimientosDeTrabajador(t.id).length}</td><td style="display:flex;gap:6px;"><button class="btn-secondary" onclick="verTrabajadorDetalle(${t.id})">Ver</button><button class="btn-danger" onclick="eliminarTrabajador(${t.id})" title="Eliminar trabajador"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="5" class="empty-state">Aún no hay trabajadores registrados. Usa "Registrar Trabajador" para agregar el primero.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function abrirModalRegistrarTrabajador() {
+  if (!DB.clientes.length) { mostrarNotificacion('Registra al menos un cliente antes de asignar negocios a un trabajador'); }
+  openModal('Registrar Nuevo Trabajador', `
+    <div class="form-grid-2">
+      <div class="field"><label>Nombre</label><input class="form-control" id="nt-nombre"></div>
+      <div class="field"><label>Teléfono</label><input class="form-control" id="nt-telefono"></div>
+    </div>
+    <div class="field" style="margin:14px 0;"><label>Negocios a asignar</label>
+      <select class="form-control" id="nt-negocios" multiple size="5" ${DB.clientes.length ? '' : 'disabled'}>
+        ${DB.clientes.length ? DB.clientes.map(c => `<option value="${c.id}">${c.negocio.nombre} — ${c.nombre}</option>`).join('') : '<option>No hay clientes registrados</option>'}
+      </select>
+    </div>
+    <button class="btn-main" onclick="guardarNuevoTrabajador()"><i class="fa-solid fa-floppy-disk"></i> Registrar Trabajador</button>
+  `);
+}
+
+function guardarNuevoTrabajador() {
+  const sel = Array.from(el('nt-negocios').selectedOptions).map(o => Number(o.value));
+  DB.trabajadores.push({ id: DB.nextId.trabajador++, nombre: el('nt-nombre').value || 'Nuevo Trabajador', telefono: el('nt-telefono').value, negocios: sel });
+  closeModal();
+  mostrarNotificacion('Trabajador registrado correctamente');
+  navegar('a-trabajadores');
+}
+
+function eliminarTrabajador(id) {
+  const t = getTrabajador(id);
+  if (!t) return;
+  if (!confirm(`¿Eliminar al trabajador ${t.nombre}? Sus negocios asignados quedarán sin trabajador y sus seguimientos históricos se conservarán.`)) return;
+  DB.trabajadores = DB.trabajadores.filter(x => x.id !== id);
+  closeModal();
+  mostrarNotificacion('Trabajador eliminado correctamente');
+  navegar('a-trabajadores');
+}
+
+function verTrabajadorDetalle(id) {
+  const t = getTrabajador(id);
+  if (!t) return;
+  const negocios = t.negocios.map(nid => getCliente(nid)).filter(Boolean);
+  const semanaActual = 'Semana 19';
+  const pendientes = negocios.filter(c => !DB.seguimientos.some(s => s.clienteId === c.id && s.semana === semanaActual));
+  openModal(`${t.nombre} — Trabajador de Campo`, `
+    <div class="form-grid-2">${field('Teléfono', t.telefono)}${field('Negocios asignados', negocios.length)}</div>
+    <div class="form-box"><h4>Negocios Asignados</h4>
+      <div class="chip-list">${negocios.map(c => `<span class="chip">${c.negocio.nombre}</span>`).join('') || '<span class="chip">Sin negocios asignados</span>'}</div>
+    </div>
+    <div class="form-box" style="margin-bottom:0;"><h4>Seguimientos: Realizados (${seguimientosDeTrabajador(id).length}) / Pendientes (${pendientes.length})</h4>
+      ${pendientes.length ? `<div class="chip-list">${pendientes.map(c => `<span class="chip" style="background:var(--warning-bg);color:var(--warning-amber);">${c.negocio.nombre}</span>`).join('')}</div>` : `<p style="font-size:.85rem;color:var(--success-green);">Todos los negocios están al día esta semana.</p>`}
+    </div>
+    <div style="margin-top:18px;text-align:right;">
+      <button class="btn-danger" onclick="eliminarTrabajador(${t.id})"><i class="fa-solid fa-trash"></i> Eliminar Trabajador</button>
+    </div>
+  `);
+}
+
+function renderAdminInversiones() {
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Inversiones Activas</h3>
+      <button class="btn-main" onclick="abrirModalNuevaInversion()"><i class="fa-solid fa-plus"></i> Nueva Inversión</button>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Cliente</th><th>Capital</th><th>Fecha</th><th>Tipo</th><th>Participación JORAN</th><th>Estado</th><th>Rentabilidad</th></tr></thead>
+      <tbody>
+        ${DB.clientes.length ? DB.clientes.map(c => `<tr><td><b>${c.negocio.nombre}</b><br><small style="color:var(--text-muted);">${c.nombre}</small></td><td>${formatCOP(c.inversion.aprobado)}</td><td>${fechaLarga(c.inversion.fecha)}</td><td>${c.inversion.tipo}</td><td>${c.inversion.participacion}%</td><td>${c.inversion.estado}</td><td style="color:${c.inversion.rentabilidad >= 0 ? 'var(--success-green)' : 'var(--danger-red)'};font-weight:700;">${c.inversion.rentabilidad}%</td></tr>`).join('') : `<tr><td colspan="7" class="empty-state">Aún no hay inversiones registradas.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function abrirModalNuevaInversion() {
+  if (!DB.clientes.length) { mostrarNotificacion('Registra al menos un cliente antes de crear una inversión'); return; }
+  openModal('Registrar Nueva Inversión', `
+    <div class="field" style="margin-bottom:14px;"><label>Cliente</label>
+      <select class="form-control" id="ni-cliente">${DB.clientes.map(c => `<option value="${c.id}">${c.negocio.nombre} — ${c.nombre}</option>`).join('')}</select>
+    </div>
+    <div class="form-grid-3">
+      <div class="field"><label>Capital aprobado</label><input type="number" class="form-control" id="ni-capital"></div>
+      <div class="field"><label>Fecha</label><input type="date" class="form-control" id="ni-fecha"></div>
+      <div class="field"><label>Tipo de inversión</label><input class="form-control" id="ni-tipo" placeholder="Ej: Capital de expansión"></div>
+    </div>
+    <div class="field" style="margin-bottom:14px;"><label>Participación JORAN (%)</label><input type="number" class="form-control" id="ni-participacion" placeholder="0"></div>
+    <button class="btn-main" onclick="guardarNuevaInversion()"><i class="fa-solid fa-floppy-disk"></i> Registrar Inversión</button>
+  `);
+}
+
+function guardarNuevaInversion() {
+  const c = getCliente(Number(el('ni-cliente').value));
+  if (c) {
+    c.inversion.aprobado += Number(el('ni-capital').value) || 0;
+    c.inversion.recibido = c.inversion.aprobado;
+    c.inversion.fecha = el('ni-fecha').value || c.inversion.fecha;
+    c.inversion.tipo = el('ni-tipo').value || c.inversion.tipo;
+    c.inversion.participacion = Number(el('ni-participacion').value) || c.inversion.participacion;
+  }
+  closeModal();
+  mostrarNotificacion('Inversión registrada correctamente');
+  navegar('a-inversiones');
+}
+
+function renderAdminSeguimientos() {
+  const all = [...DB.seguimientos].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Todos los Seguimientos</h3>
+      <select class="form-control" style="max-width:200px;" id="filtro-estado-seg" onchange="filtrarSeguimientosAdmin()">
+        <option value="">Todos los estados</option>
+        <option value="optimo">🟢 Óptimo</option>
+        <option value="atencion">🟡 En Atención</option>
+        <option value="riesgo">🔴 En Riesgo</option>
+      </select>
+    </div>
+    <div class="table-scroll" id="tabla-seguimientos-admin">${tablaSeguimientosAdmin(all)}</div>
+  </div>`;
+}
+
+function tablaSeguimientosAdmin(list) {
+  return `<table>
+    <thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Estado</th><th>Evidencias</th><th></th></tr></thead>
+    <tbody>
+      ${list.length ? list.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td><td>${(s.evidencias?.fotos || []).length + (s.evidencias?.documentos || []).length + (s.evidencias?.facturas || []).length} archivos</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`).join('') : `<tr><td colspan="9" class="empty-state">No hay seguimientos con ese estado.</td></tr>`}
+    </tbody>
+  </table>`;
+}
+
+function filtrarSeguimientosAdmin() {
+  const val = el('filtro-estado-seg').value;
+  const list = [...DB.seguimientos].filter(s => !val || s.estado === val).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  el('tabla-seguimientos-admin').innerHTML = tablaSeguimientosAdmin(list);
+}
+
+function renderAdminReportes() {
+  if (!DB.clientes.length) {
+    return `<div class="card-table"><div class="empty-state">Aún no hay datos suficientes para generar reportes. Registra clientes y seguimientos primero.</div></div>`;
+  }
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Ventas por Negocio</h3></div>
+    <canvas id="chart-ventas-negocio" height="90"></canvas>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Utilidad por Negocio</h3></div>
+    <canvas id="chart-utilidad-negocio" height="90"></canvas>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Rendimiento de Inversiones</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Cliente</th><th>Capital</th><th>Utilidad Generada</th><th>Rentabilidad</th></tr></thead>
+      <tbody>${DB.clientes.map(c => `<tr><td>${c.negocio.nombre}</td><td>${formatCOP(c.inversion.aprobado)}</td><td>${formatCOP(c.resultados.utilidad)}</td><td style="color:${c.inversion.rentabilidad >= 0 ? 'var(--success-green)' : 'var(--danger-red)'};font-weight:700;">${c.inversion.rentabilidad}%</td></tr>`).join('')}</tbody>
+    </table></div>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Evolución Semanal (Utilidad Agregada)</h3></div>
+    ${DB.seguimientos.length ? '<canvas id="chart-evolucion" height="90"></canvas>' : '<div class="empty-state">Aún no hay seguimientos registrados.</div>'}
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Cumplimiento de Metas por Negocio</h3></div>
+    ${DB.clientes.map(c => {
+      const pct = c.resultados.metas ? Math.min(100, (c.resultados.ventas / c.resultados.metas) * 100) : 0;
+      return `<div style="margin-bottom:14px;"><p style="font-size:.85rem;margin-bottom:5px;">${c.negocio.nombre} — ${pct.toFixed(1)}%</p><div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct >= 80 ? 'var(--success-green)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-red)'};width:${pct}%;"></div></div></div>`;
+    }).join('')}
+  </div>`;
+}
+
+function afterAdminReportes() {
+  if (!DB.clientes.length || !window.Chart) return;
+  
+  const labels = DB.clientes.map(c => c.negocio.nombre);
+  const ventas = DB.clientes.map(c => c.resultados.ventas);
+  const utilidades = DB.clientes.map(c => c.resultados.utilidad);
+
+  const ctx1 = document.getElementById('chart-ventas-negocio');
+  if (ctx1) {
+    new Chart(ctx1, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'Ventas', data: ventas, backgroundColor: '#123055' }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+
+  const ctx2 = document.getElementById('chart-utilidad-negocio');
+  if (ctx2) {
+    new Chart(ctx2, {
+      type: 'bar',
+      data: {
+        labels: labels,
+        datasets: [{ label: 'Utilidad', data: utilidades, backgroundColor: '#0f9d58' }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+
+  const ctx3 = document.getElementById('chart-evolucion');
+  if (ctx3 && DB.seguimientos.length) {
+    const segs = [...DB.seguimientos].reverse();
+    new Chart(ctx3, {
+      type: 'line',
+      data: {
+        labels: segs.map(s => s.semana),
+        datasets: [{ label: 'Utilidad', data: segs.map(s => s.utilidad), borderColor: '#c9a227', fill: false, tension: 0.1 }]
+      },
+      options: { responsive: true, plugins: { legend: { display: false } } }
+    });
+  }
+}
+
+function renderAdminConfiguracion() {
+  const p = DB.parametros;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Parámetros Generales del Sistema</h3></div>
+    <div class="form-grid-2">
+      <div class="field"><label>Nombre de la Empresa</label><input class="form-control" id="cfg-empresa" value="${p.nombreEmpresa}"></div>
+      <div class="field"><label>Moneda Base</label><input class="form-control" id="cfg-moneda" value="${p.moneda}"></div>
+    </div>
+    <div class="form-grid-2" style="margin-top:14px;">
+      <div class="field"><label>Período de Seguimiento</label><input class="form-control" id="cfg-periodo" value="${p.periodoSeguimiento}"></div>
+      <div class="field"><label>Meta Mínima Cumplimiento (%)</label><input type="number" class="form-control" id="cfg-meta" value="${p.metaCumplimientoMinimo}"></div>
+    </div>
+    <button class="btn-main" style="margin-top:18px;" onclick="guardarConfiguracion()"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
+  </div>`;
+}
+
+function guardarConfiguracion() {
+  DB.parametros.nombreEmpresa = el('cfg-empresa').value;
+  DB.parametros.moneda = el('cfg-moneda').value;
+  DB.parametros.periodoSeguimiento = el('cfg-periodo').value;
+  DB.parametros.metaCumplimientoMinimo = Number(el('cfg-meta').value) || 80;
+  mostrarNotificacion('Configuración guardada con éxito');
+}
+</script>
+</body>
+</html>
