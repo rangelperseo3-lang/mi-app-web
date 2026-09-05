@@ -9,8 +9,14 @@ dns.setServers(["8.8.8.8", "8.8.4.4"]);
 const app = express();
 const PORT = process.env.PORT || 3000;
 
-// Reemplaza TU_CONTRASEÑA_REAL por la contraseña que creaste en MongoDB Atlas
-const MONGO_URI = process.env.MONGO_URI || "mongodb+srv://ran9282148_db_user:dr9609208dr@cluster0.hr7feyk.mongodb.net/?appName=Cluster0";
+// IMPORTANTE: la contraseña de MongoDB debe venir de una variable de entorno
+// (configúrala en Render -> tu servicio -> Environment -> MONGO_URI).
+// No dejes la contraseña real escrita en el código si el repositorio es público.
+const MONGO_URI = process.env.MONGO_URI;
+
+if (!MONGO_URI) {
+  console.error("Falta la variable de entorno MONGO_URI. Configúrala en Render antes de iniciar el servidor.");
+}
 
 // Conexión a la base de datos compartida en la nube
 mongoose
@@ -18,16 +24,37 @@ mongoose
   .then(() => console.log("Conectado con éxito a MongoDB Atlas"))
   .catch((err) => console.error("Error al conectar a MongoDB:", err));
 
-// Definir la estructura de los datos que van a compartir los usuarios
-const DatoSchema = new mongoose.Schema({
-  contenido: String,
-  fecha: { type: Date, default: Date.now }
-});
+/* =========================================================
+   Estado compartido de la plataforma INVERSIONES JORAN
+   Se guarda como UN solo documento ("global") que contiene todo
+   el objeto DB del frontend (clientes, trabajadores, seguimientos,
+   categorías, parámetros, solicitudes de edición y contadores).
+   Así, cualquier dispositivo que abra la página ve los mismos datos.
+   ========================================================= */
+const EstadoAppSchema = new mongoose.Schema(
+  {
+    clave: { type: String, unique: true, default: "global" },
+    datos: { type: mongoose.Schema.Types.Mixed, default: {} }
+  },
+  { minimize: false, timestamps: true }
+);
 
-const Dato = mongoose.model("Dato", DatoSchema);
+const EstadoApp = mongoose.model("EstadoApp", EstadoAppSchema);
 
-// Middlewares para procesar JSON y servir archivos estáticos (tu HTML)
-app.use(express.json());
+const ESTADO_POR_DEFECTO = {
+  clientes: [],
+  trabajadores: [],
+  seguimientos: [],
+  usuarios: [],
+  categorias: ['Tienda de barrio', 'Panadería', 'Barbería', 'Papelería', 'Restaurante', 'Ferretería', 'Otro'],
+  parametros: { moneda: 'COP', periodoSeguimiento: 'Semanal', metaCumplimientoMinimo: 80, nombreEmpresa: 'INVERSIONES JORAN S.A.S.' },
+  solicitudesEdicion: [],
+  nextId: { cliente: 1, trabajador: 1, seguimiento: 1, usuario: 1, solicitud: 1 }
+};
+
+// Middlewares para procesar JSON (con límite mayor, ya que las evidencias
+// del trabajador van como imágenes/documentos en base64) y servir el HTML
+app.use(express.json({ limit: "25mb" }));
 app.use(express.static(__dirname));
 
 // Ruta principal para cargar el diseño web
@@ -35,24 +62,34 @@ app.get("/", (req, res) => {
   res.sendFile(path.join(__dirname, "index.html"));
 });
 
-// API: Ruta para OBTENER todos los datos guardados por cualquier usuario
-app.get("/api/datos", async (req, res) => {
+// API: Obtener el estado compartido (clientes, trabajadores, seguimientos, etc.)
+app.get("/api/estado", async (req, res) => {
   try {
-    const datos = await Dato.find().sort({ fecha: -1 });
-    res.json(datos);
+    let doc = await EstadoApp.findOne({ clave: "global" });
+    if (!doc) {
+      doc = await EstadoApp.create({ clave: "global", datos: ESTADO_POR_DEFECTO });
+    }
+    res.json(doc.datos || ESTADO_POR_DEFECTO);
   } catch (error) {
-    res.status(500).json({ error: "Error al obtener los datos" });
+    console.error("Error al obtener el estado:", error);
+    res.status(500).json({ error: "Error al obtener el estado" });
   }
 });
 
-// API: Ruta para GUARDAR un nuevo dato desde cualquier computadora
-app.post("/api/datos", async (req, res) => {
+// API: Guardar/actualizar el estado compartido (lo llama cualquier dispositivo
+// cada vez que un cliente, trabajador o administrador hace un cambio)
+app.put("/api/estado", async (req, res) => {
   try {
-    const nuevoDato = new Dato({ contenido: req.body.contenido });
-    await nuevoDato.save();
-    res.json({ mensaje: "Dato guardado correctamente", dato: nuevoDato });
+    const nuevosDatos = req.body;
+    const doc = await EstadoApp.findOneAndUpdate(
+      { clave: "global" },
+      { datos: nuevosDatos },
+      { new: true, upsert: true }
+    );
+    res.json({ mensaje: "Estado guardado correctamente", datos: doc.datos });
   } catch (error) {
-    res.status(500).json({ error: "Error al guardar el dato" });
+    console.error("Error al guardar el estado:", error);
+    res.status(500).json({ error: "Error al guardar el estado" });
   }
 });
 
