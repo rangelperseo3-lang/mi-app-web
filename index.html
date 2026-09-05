@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+[cite: 1]<!DOCTYPE html>
 <html lang="es">
 <head>
 <meta charset="UTF-8">
@@ -1525,51 +1525,46 @@ function renderAdminReportes() {
     <div class="card-table-header"><h3>Cumplimiento de Metas por Negocio</h3></div>
     ${DB.clientes.map(c => {
       const pct = c.resultados.metas ? Math.min(100, (c.resultados.ventas / c.resultados.metas) * 100) : 0;
-      return `<div style="margin-bottom:14px;"><p style="font-size:.85rem;margin-bottom:5px;">${c.negocio.nombre} — ${pct.toFixed(1)}%</p><div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct >= 80 ? 'var(--success-green)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-red)'};width:${pct}%;"></div></div></div>`;
+      return `<div style="margin-bottom:12px;">
+        <div style="display:flex;justify-content:space-between;font-size:.82rem;margin-bottom:4px;"><b>${c.negocio.nombre}</b><span>${pct.toFixed(1)}% (${formatCOP(c.resultados.ventas)} / ${formatCOP(c.resultados.metas)})</span></div>
+        <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct >= 80 ? 'var(--success-green)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-red)'};width:${pct}%;"></div></div>
+      </div>`;
     }).join('')}
   </div>`;
 }
 
 function afterAdminReportes() {
-  if (!DB.clientes.length || !window.Chart) return;
-  
+  if (!window.Chart || !DB.clientes.length) return;
   const labels = DB.clientes.map(c => c.negocio.nombre);
   const ventas = DB.clientes.map(c => c.resultados.ventas);
   const utilidades = DB.clientes.map(c => c.resultados.utilidad);
 
-  const ctx1 = document.getElementById('chart-ventas-negocio');
-  if (ctx1) {
-    new Chart(ctx1, {
+  const ctxVentas = el('chart-ventas-negocio');
+  if (ctxVentas) {
+    new Chart(ctxVentas, {
       type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{ label: 'Ventas', data: ventas, backgroundColor: '#123055' }]
-      },
+      data: { labels, datasets: [{ label: 'Ventas ($)', data: ventas, backgroundColor: '#0d2340' }] },
       options: { responsive: true, plugins: { legend: { display: false } } }
     });
   }
 
-  const ctx2 = document.getElementById('chart-utilidad-negocio');
-  if (ctx2) {
-    new Chart(ctx2, {
+  const ctxUtil = el('chart-utilidad-negocio');
+  if (ctxUtil) {
+    new Chart(ctxUtil, {
       type: 'bar',
-      data: {
-        labels: labels,
-        datasets: [{ label: 'Utilidad', data: utilidades, backgroundColor: '#0f9d58' }]
-      },
+      data: { labels, datasets: [{ label: 'Utilidad ($)', data: utilidades, backgroundColor: '#0f9d58' }] },
       options: { responsive: true, plugins: { legend: { display: false } } }
     });
   }
 
-  const ctx3 = document.getElementById('chart-evolucion');
-  if (ctx3 && DB.seguimientos.length) {
-    const segs = [...DB.seguimientos].reverse();
-    new Chart(ctx3, {
+  const ctxEvo = el('chart-evolucion');
+  if (ctxEvo && DB.seguimientos.length) {
+    const ordenados = [...DB.seguimientos].sort((a, b) => a.fecha.localeCompare(b.fecha));
+    const semanasMap = {};
+    ordenados.forEach(s => { semanasMap[s.semana] = (semanasMap[s.semana] || 0) + s.utilidad; });
+    new Chart(ctxEvo, {
       type: 'line',
-      data: {
-        labels: segs.map(s => s.semana),
-        datasets: [{ label: 'Utilidad', data: segs.map(s => s.utilidad), borderColor: '#c9a227', fill: false, tension: 0.1 }]
-      },
+      data: { labels: Object.keys(semanasMap), datasets: [{ label: 'Utilidad total ($)', data: Object.values(semanasMap), borderColor: '#c9a227', backgroundColor: 'rgba(201,162,39,0.1)', fill: true, tension: 0.3 }] },
       options: { responsive: true, plugins: { legend: { display: false } } }
     });
   }
@@ -1579,25 +1574,23 @@ function renderAdminConfiguracion() {
   const p = DB.parametros;
   return `
   <div class="card-table">
-    <div class="card-table-header"><h3>Parámetros Generales del Sistema</h3></div>
-    <div class="form-grid-2">
-      <div class="field"><label>Nombre de la Empresa</label><input class="form-control" id="cfg-empresa" value="${p.nombreEmpresa}"></div>
-      <div class="field"><label>Moneda Base</label><input class="form-control" id="cfg-moneda" value="${p.moneda}"></div>
+    <div class="card-table-header"><h3>Parámetros Generales de la Plataforma</h3></div>
+    <div class="form-grid-3">
+      <div class="field"><label>Nombre de la Empresa</label><input class="form-control" value="${p.nombreEmpresa}" id="cfg-nombre"></div>
+      <div class="field"><label>Moneda principal</label><input class="form-control" value="${p.moneda}" id="cfg-moneda"></div>
+      <div class="field"><label>Periodo de seguimiento</label><input class="form-control" value="${p.periodoSeguimiento}" id="cfg-periodo"></div>
     </div>
-    <div class="form-grid-2" style="margin-top:14px;">
-      <div class="field"><label>Período de Seguimiento</label><input class="form-control" id="cfg-periodo" value="${p.periodoSeguimiento}"></div>
-      <div class="field"><label>Meta Mínima Cumplimiento (%)</label><input type="number" class="form-control" id="cfg-meta" value="${p.metaCumplimientoMinimo}"></div>
-    </div>
-    <button class="btn-main" style="margin-top:18px;" onclick="guardarConfiguracion()"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
+    <div class="field" style="margin-bottom:16px;max-width:260px;"><label>Meta mínima cumplimiento (%)</label><input type="number" class="form-control" value="${p.metaCumplimientoMinimo}" id="cfg-cumplimiento"></div>
+    <button class="btn-main" onclick="guardarConfiguracionAdmin()"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
   </div>`;
 }
 
-function guardarConfiguracion() {
-  DB.parametros.nombreEmpresa = el('cfg-empresa').value;
+function guardarConfiguracionAdmin() {
+  DB.parametros.nombreEmpresa = el('cfg-nombre').value;
   DB.parametros.moneda = el('cfg-moneda').value;
   DB.parametros.periodoSeguimiento = el('cfg-periodo').value;
-  DB.parametros.metaCumplimientoMinimo = Number(el('cfg-meta').value) || 80;
-  mostrarNotificacion('Configuración guardada con éxito');
+  DB.parametros.metaCumplimientoMinimo = Number(el('cfg-cumplimiento').value) || 80;
+  mostrarNotificacion('Configuración guardada correctamente');
 }
 </script>
 </body>
