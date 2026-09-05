@@ -12,7 +12,7 @@ const PORT = process.env.PORT || 3000;
 // IMPORTANTE: la contraseña de MongoDB debe venir de una variable de entorno
 // (configúrala en Render -> tu servicio -> Environment -> MONGO_URI).
 // No dejes la contraseña real escrita en el código si el repositorio es público.
-const MONGO_URI = process.env.MONGO_URI;
+const MONGO_URI = mongodb+srv://ran9282148_db_user:dr9609208@cluster0.hr7feyk.mongodb.net/?appName=Cluster0
 
 if (!MONGO_URI) {
   console.error("Falta la variable de entorno MONGO_URI. Configúrala en Render antes de iniciar el servidor.");
