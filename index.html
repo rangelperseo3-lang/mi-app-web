@@ -223,7 +223,8 @@ tr:hover td{background:#fbfbfd;}
           <div id="header-user-name" style="font-size:.86rem;font-weight:700;">Usuario</div>
           <div id="header-user-role" style="font-size:.7rem;color:var(--text-muted);">Rol</div>
         </div>
-        <button onclick="cerrarSesion()" class="btn-secondary" style="margin-left:14px;color:var(--danger-red);"><i class="fa-solid fa-power-off"></i></button>
+        <button onclick="actualizarDatosManual()" class="btn-secondary" style="margin-left:14px;" title="Traer los últimos datos guardados por otros dispositivos"><i class="fa-solid fa-rotate"></i></button>
+        <button onclick="cerrarSesion()" class="btn-secondary" style="margin-left:6px;color:var(--danger-red);"><i class="fa-solid fa-power-off"></i></button>
       </div>
     </header>
     <div class="content-container" id="content-container"></div>
@@ -254,21 +255,96 @@ const DB = {
   nextId: { cliente: 1, trabajador: 1, seguimiento: 1, usuario: 1, solicitud: 1 }
 };
 
-/* ---------------- Persistencia (localStorage) ---------------- */
-const ESTADO_KEY = 'joran_estado_v1';
-function guardarEstado() {
-  try { localStorage.setItem(ESTADO_KEY, JSON.stringify({ DB, SESSION })); } catch (e) { /* almacenamiento no disponible */ }
+/* ---------------- Persistencia ----------------
+   La SESIÓN (quién inició sesión en ESTE dispositivo) se guarda solo
+   en localStorage: cada dispositivo mantiene su propia sesión.
+   La BASE DE DATOS (clientes, trabajadores, seguimientos, etc.) se
+   guarda en el servidor (MongoDB Atlas) para que sea visible desde
+   cualquier dispositivo, no solo el que la creó.
+------------------------------------------------- */
+const SESSION_KEY = 'joran_sesion_v1';
+const API_BASE = ''; // mismo origen que sirve este archivo (Express)
+
+let _guardadoPendiente = false;
+let _guardadoEnCurso = false;
+let _timerGuardadoRemoto = null;
+
+function guardarSesionLocal() {
+  try { localStorage.setItem(SESSION_KEY, JSON.stringify(SESSION)); } catch (e) { /* almacenamiento no disponible */ }
 }
-function cargarEstado() {
+function cargarSesionLocal() {
   try {
-    const raw = localStorage.getItem(ESTADO_KEY);
+    const raw = localStorage.getItem(SESSION_KEY);
     if (!raw) return false;
-    const data = JSON.parse(raw);
-    if (data.DB) Object.assign(DB, data.DB);
-    if (data.SESSION) Object.assign(SESSION, data.SESSION);
+    Object.assign(SESSION, JSON.parse(raw));
     return true;
   } catch (e) { return false; }
 }
+
+async function cargarEstadoRemoto() {
+  try {
+    const res = await fetch(API_BASE + '/api/estado');
+    if (!res.ok) throw new Error('Respuesta no válida del servidor');
+    const datos = await res.json();
+    // Si hay un guardado local pendiente o en curso, no lo pisamos con datos viejos del servidor.
+    if (_guardadoPendiente || _guardadoEnCurso) return false;
+    if (datos && typeof datos === 'object' && Object.keys(datos).length) {
+      Object.assign(DB, datos);
+    }
+    return true;
+  } catch (e) {
+    console.error('No se pudo cargar el estado desde el servidor:', e);
+    return false;
+  }
+}
+
+function guardarEstado() {
+  guardarSesionLocal();
+  _guardadoPendiente = true;
+  clearTimeout(_timerGuardadoRemoto);
+  _timerGuardadoRemoto = setTimeout(enviarEstadoRemoto, 700);
+}
+
+async function enviarEstadoRemoto() {
+  if (_guardadoEnCurso) { _timerGuardadoRemoto = setTimeout(enviarEstadoRemoto, 700); return; }
+  if (!_guardadoPendiente) return;
+  _guardadoPendiente = false;
+  _guardadoEnCurso = true;
+  try {
+    const res = await fetch(API_BASE + '/api/estado', {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(DB)
+    });
+    if (!res.ok) throw new Error('El servidor rechazó el guardado');
+  } catch (e) {
+    console.error('No se pudo guardar el estado en el servidor:', e);
+    _guardadoPendiente = true; // se reintentará en el próximo ciclo
+    mostrarNotificacion('No se pudo sincronizar con el servidor, reintentando...');
+  } finally {
+    _guardadoEnCurso = false;
+  }
+}
+
+async function actualizarDatosManual() {
+  mostrarNotificacion('Buscando datos actualizados...');
+  const ok = await cargarEstadoRemoto();
+  if (ok) {
+    // Volver a pintar la vista actual con los datos frescos
+    const activo = document.querySelector('.nav-link.active');
+    if (activo) activo.click();
+    mostrarNotificacion('Datos actualizados');
+  } else {
+    mostrarNotificacion('No se pudo conectar con el servidor');
+  }
+}
+
+/* Sincronización periódica en segundo plano: mientras no haya cambios
+   locales sin guardar, trae lo último que hayan guardado otros
+   dispositivos, para que la información se mantenga compartida. */
+setInterval(() => {
+  if (!_guardadoPendiente && !_guardadoEnCurso) cargarEstadoRemoto();
+}, 8000);
 
 /* ---------------- Utilidades ---------------- */
 function formatCOP(n) {
@@ -372,7 +448,7 @@ function togglePassword() {
   eye.classList.toggle('fa-eye-slash', isHidden);
 }
 
-function realizarLogin(e) {
+async function realizarLogin(e) {
   e.preventDefault();
   const rol = el('selectRol').value;
   const usuario = el('inputUsuario').value.trim();
@@ -381,6 +457,9 @@ function realizarLogin(e) {
   if (!rol) { mostrarNotificacion('Seleccione un rol'); return; }
   if (!usuario) { mostrarNotificacion('Ingrese su nombre de usuario'); return; }
   if (!password) { mostrarNotificacion('Por favor ingrese su contraseña'); return; }
+
+  // Aseguramos tener los datos más recientes del servidor antes de validar el login
+  await cargarEstadoRemoto();
 
   if (rol === 'client' && !DB.clientes.length) { 
     mostrarNotificacion('Aún no hay clientes registrados. Ingrese como Administrador para registrar el primero.'); 
@@ -407,7 +486,7 @@ function realizarLogin(e) {
   else if (rol === 'worker') initTrabajadorUI();
   else if (rol === 'admin') initAdminUI();
 
-  guardarEstado();
+  guardarSesionLocal();
   mostrarNotificacion('Sesión iniciada con éxito');
 }
 
@@ -416,7 +495,7 @@ function cerrarSesion() {
   el('view-login').style.display = 'flex';
   el('content-container').innerHTML = '';
   SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
-  guardarEstado();
+  guardarSesionLocal();
   mostrarNotificacion('Sesión finalizada');
 }
 
@@ -436,13 +515,14 @@ function navegar(id, elx) {
   el('titulo-pagina').innerText = route.titulo;
   el('content-container').innerHTML = route.render();
   if (route.after) route.after();
-  guardarEstado();
+  guardarSesionLocal();
 }
 
 /* ---------------- Arranque de la aplicación ---------------- */
-function iniciarApp() {
-  const habiaEstado = cargarEstado();
-  const sesionValida = habiaEstado && SESSION.rol && (
+async function iniciarApp() {
+  cargarSesionLocal();
+  await cargarEstadoRemoto();
+  const sesionValida = SESSION.rol && (
     (SESSION.rol === 'client' && getCliente(SESSION.clienteId)) ||
     (SESSION.rol === 'worker' && getTrabajador(SESSION.trabajadorId)) ||
     SESSION.rol === 'admin'
@@ -458,8 +538,8 @@ function iniciarApp() {
   } else {
     SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
   }
-  setInterval(guardarEstado, 1000);
-  window.addEventListener('beforeunload', guardarEstado);
+  setInterval(guardarSesionLocal, 2000);
+  window.addEventListener('beforeunload', guardarSesionLocal);
 }
 document.addEventListener('DOMContentLoaded', iniciarApp);
 
@@ -735,6 +815,7 @@ function guardarPerfilCliente(id) {
   c.telefono = el('perfil-telefono').value;
   c.correo = el('perfil-correo').value;
   c.direccion = el('perfil-direccion').value;
+  guardarEstado();
   mostrarNotificacion('Perfil actualizado correctamente');
 }
 
@@ -936,6 +1017,7 @@ function guardarSeguimientoTrabajador(trabajadorId) {
     cli.resultados.inventario = nuevo.inventario;
   }
   resetEvidenciasTemp();
+  guardarEstado();
   mostrarNotificacion('¡Seguimiento semanal guardado correctamente!');
   navegar('w-inicio');
 }
@@ -1172,6 +1254,7 @@ function atenderSolicitudEdicion(id) {
   const s = DB.solicitudesEdicion.find(x => x.id === id);
   if (!s) return;
   s.estado = 'Atendida';
+  guardarEstado();
   el('tabla-solicitudes-edicion').innerHTML = tablaSolicitudesEdicion();
   mostrarNotificacion('Solicitud marcada como atendida');
 }
@@ -1590,6 +1673,7 @@ function guardarConfiguracionAdmin() {
   DB.parametros.moneda = el('cfg-moneda').value;
   DB.parametros.periodoSeguimiento = el('cfg-periodo').value;
   DB.parametros.metaCumplimientoMinimo = Number(el('cfg-cumplimiento').value) || 80;
+  guardarEstado();
   mostrarNotificacion('Configuración guardada correctamente');
 }
 </script>
