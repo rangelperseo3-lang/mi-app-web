@@ -58,7 +58,12 @@ textarea.form-control{resize:vertical;font-family:inherit;}
 .btn-login{width:100%;background:var(--gold);color:var(--navy-deep);border:none;padding:12px;border-radius:8px;
   font-weight:800;cursor:pointer;font-size:.98rem;transition:.2s;margin-top:8px;letter-spacing:.3px;}
 .btn-login:hover{background:var(--gold-light);}
+.btn-login:disabled{opacity:.55;cursor:not-allowed;}
 .login-hint{font-size:.68rem;color:rgba(255,255,255,.4);margin-top:16px;}
+.login-error{background:rgba(192,57,43,.18);border:1px solid rgba(192,57,43,.5);color:#ffd9d4;font-size:.78rem;
+  padding:9px 12px;border-radius:8px;margin-bottom:14px;display:none;text-align:left;}
+.login-error.show{display:block;}
+.field-error{border-color:var(--danger-red) !important;}
 
 /* APP LAYOUT */
 #view-app{height:100vh;display:none;grid-template-columns:262px 1fr;}
@@ -110,6 +115,7 @@ tr:hover td{background:#fbfbfd;}
 
 .btn-main{background:var(--navy);color:var(--gold-light);border:none;padding:9px 16px;border-radius:7px;font-weight:700;cursor:pointer;font-size:.82rem;display:inline-flex;align-items:center;gap:6px;transition:.2s;}
 .btn-main:hover{background:var(--navy-hover);}
+.btn-main:disabled{opacity:.5;cursor:not-allowed;}
 .btn-secondary{background:#eef1f5;color:#334155;border:none;padding:7px 13px;border-radius:7px;font-weight:600;cursor:pointer;font-size:.78rem;}
 .btn-secondary:hover{background:#e2e8f0;}
 .btn-danger{background:var(--danger-bg);color:var(--danger-red);border:none;padding:7px 13px;border-radius:7px;font-weight:700;cursor:pointer;font-size:.78rem;}
@@ -122,6 +128,7 @@ tr:hover td{background:#fbfbfd;}
 .form-box{background:#f8fafc;border:1px solid var(--border-color);padding:16px;border-radius:10px;margin-bottom:16px;}
 .form-box h4{font-size:.8rem;color:var(--navy);text-transform:uppercase;margin-bottom:12px;font-weight:800;border-bottom:2px solid var(--gold);padding-bottom:6px;letter-spacing:.3px;display:inline-block;}
 .field label{display:block;font-size:.76rem;font-weight:700;color:#475569;margin-bottom:4px;}
+.field label .req{color:var(--danger-red);}
 
 .tabs{display:flex;gap:4px;margin-bottom:16px;border-bottom:1px solid var(--border-color);flex-wrap:wrap;}
 .tab-btn{padding:9px 16px;font-size:.8rem;font-weight:700;color:var(--text-muted);background:none;border:none;cursor:pointer;border-bottom:3px solid transparent;}
@@ -149,6 +156,7 @@ tr:hover td{background:#fbfbfd;}
 
 #toast{position:fixed;bottom:22px;right:22px;background:var(--navy-deep);color:#fff;padding:13px 20px;border-radius:9px;
   border-left:4px solid var(--gold);display:none;z-index:2000;font-size:.88rem;box-shadow:0 10px 25px rgba(0,0,0,.25);max-width:320px;}
+#toast.toast-error{border-left-color:var(--danger-red);}
 
 .empty-state{text-align:center;padding:30px;color:var(--text-muted);font-size:.85rem;}
 .risk-list-item{display:flex;justify-content:space-between;align-items:center;padding:10px 0;border-bottom:1px solid var(--border-color);font-size:.85rem;}
@@ -194,7 +202,8 @@ tr:hover td{background:#fbfbfd;}
     <div class="logo-badge">JR</div>
     <h2>INVERSIONES JORAN</h2>
     <div class="tagline">Plataforma de gestión PyMEs</div>
-    <form onsubmit="realizarLogin(event)">
+    <div class="login-error" id="login-error"></div>
+    <form onsubmit="realizarLogin(event)" id="form-login">
       <div class="form-group">
         <label>Rol de Usuario</label>
         <select id="selectRol" class="form-control" required onchange="handleRolChange()">
@@ -205,12 +214,12 @@ tr:hover td{background:#fbfbfd;}
         </select>
       </div>
       <div class="form-group" id="grupo-entidad" style="display:none;">
-        <label id="label-entidad">Seleccione su negocio</label>
+        <label id="label-entidad">Seleccione su usuario</label>
         <select id="selectEntidad" class="form-control"></select>
       </div>
       <div class="form-group">
         <label>Nombre de Usuario</label>
-        <input type="text" id="inputUsuario" class="form-control" required placeholder="Ingrese su nombre">
+        <input type="text" id="inputUsuario" class="form-control" required placeholder="Ingrese su nombre" readonly>
       </div>
       <div class="form-group">
         <label>Contraseña</label>
@@ -219,8 +228,7 @@ tr:hover td{background:#fbfbfd;}
           <button type="button" class="password-toggle" onclick="togglePassword()"><i class="fa-solid fa-eye" id="password-eye"></i></button>
         </div>
       </div>
-      <button type="submit" class="btn-login"><i class="fa-solid fa-lock"></i> Acceder a la Plataforma</button>
-      <p class="login-hint">Prototipo de demostración — cualquier contraseña es válida.</p>
+      <button type="submit" class="btn-login" id="btn-login"><i class="fa-solid fa-lock"></i> Acceder a la Plataforma</button>
     </form>
   </div>
 </section>
@@ -268,7 +276,7 @@ tr:hover td{background:#fbfbfd;}
    INVERSIONES JORAN - Lógica de la plataforma
    ========================================================= */
 
-let SESSION = { rol: null, usuario: null, clienteId: null, trabajadorId: null, vista: null };
+let SESSION = { rol: null, usuario: null, usuarioId: null, clienteId: null, trabajadorId: null, vista: null };
 
 const DB = {
   clientes: [],
@@ -375,7 +383,7 @@ async function enviarEstadoRemoto() {
   } catch (e) {
     console.error('No se pudo guardar el estado en el servidor:', e);
     _guardadoPendiente = true; // se reintentará en el próximo ciclo
-    mostrarNotificacion('No se pudo sincronizar con el servidor, reintentando...');
+    mostrarNotificacion('No se pudo sincronizar con el servidor, reintentando...', true);
   } finally {
     _guardadoEnCurso = false;
   }
@@ -391,7 +399,7 @@ async function actualizarDatosManual() {
     if (activo) activo.click();
     mostrarNotificacion('Datos actualizados');
   } else {
-    mostrarNotificacion('No se pudo conectar con el servidor');
+    mostrarNotificacion('No se pudo conectar con el servidor', true);
   }
 }
 
@@ -433,10 +441,6 @@ setInterval(async () => {
 }, 8000);
 
 /* ---------------- Utilidades ---------------- */
-/* Antes se comparaba contra el texto fijo "Semana 19", que nunca avanzaba.
-   Ahora se calcula la semana ISO real a partir de la fecha, y se usa esa
-   fecha (no el texto libre que escribe el trabajador) para saber si un
-   negocio ya tiene seguimiento en la semana en curso. */
 function infoSemanaISO(fechaStr) {
   const d = new Date((fechaStr || '') + 'T00:00:00');
   if (isNaN(d)) return null;
@@ -487,9 +491,6 @@ function nombreNegocio(id) { const c = getCliente(id); return escapeHTML(c ? c.n
 function seguimientosDeCliente(id) { return DB.seguimientos.filter(s => s.clienteId === id).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
 function seguimientosDeTrabajador(id) { return DB.seguimientos.filter(s => s.trabajadorId === id).sort((a, b) => b.fecha.localeCompare(a.fecha)); }
 function ultimoSeguimiento(clienteId) { const list = seguimientosDeCliente(clienteId); return list.length ? list[0] : null; }
-/* Escapa cualquier texto libre que haya escrito un cliente, trabajador o admin
-   antes de insertarlo con innerHTML, para evitar que un campo con <script>
-   o similar quede guardado y se ejecute cuando alguien más abra esa ficha. */
 function escapeHTML(str) {
   if (str === undefined || str === null) return '';
   return String(str)
@@ -501,9 +502,10 @@ function escapeHTML(str) {
 }
 function el(id) { return document.getElementById(id); }
 
-function mostrarNotificacion(msg) {
+function mostrarNotificacion(msg, esError) {
   const toast = el('toast');
   el('toast-msg').innerText = msg;
+  toast.classList.toggle('toast-error', !!esError);
   toast.style.display = 'block';
   clearTimeout(window._toastTimer);
   window._toastTimer = setTimeout(() => toast.style.display = 'none', 3200);
@@ -520,9 +522,6 @@ function openModal(titleHtml, bodyHtml) {
 }
 function closeModal() { el('modal-overlay').classList.remove('open'); guardarEstado(); }
 
-/* Reemplazo de confirm() nativo, con el mismo estilo del resto de la app.
-   Si se invoca mientras ya hay otro modal abierto (por ejemplo el detalle
-   de un cliente), reemplaza su contenido por la pregunta de confirmación. */
 let _accionConfirmarPendiente = null;
 function confirmarAccion(mensaje, callback) {
   _accionConfirmarPendiente = callback;
@@ -552,34 +551,46 @@ function switchTab(groupId, tabId, btn) {
 }
 
 /* ---------------- LOGIN ---------------- */
+/* El login ahora se valida contra el directorio real de Usuarios (DB.usuarios):
+   se elige el rol, se elige la persona registrada con ese rol, y la contraseña
+   debe coincidir con la que quedó guardada al registrar al usuario. Ya no se
+   puede entrar escribiendo cualquier nombre y cualquier contraseña.
+   Excepción de arranque: si todavía no existe NINGÚN usuario Administrador
+   registrado (primer uso de la plataforma), se permite entrar como admin con
+   cualquier contraseña, para poder crear el primer usuario real desde
+   Configuración → Usuarios. En cuanto exista un admin registrado, esa puerta
+   se cierra. */
+function hayAdminRegistrado() {
+  return DB.usuarios.some(u => u.rol === 'admin');
+}
+
 function handleRolChange() {
   const rol = el('selectRol').value;
   const grupo = el('grupo-entidad');
   const label = el('label-entidad');
   const select = el('selectEntidad');
   const inputUsuario = el('inputUsuario');
+  ocultarErrorLogin();
 
-  if (rol === 'client') {
-    grupo.style.display = 'block';
-    label.innerText = 'Seleccione su negocio';
-    select.innerHTML = DB.clientes.length
-      ? DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')
-      : `<option value="">No hay clientes registrados aún</option>`;
-    select.onchange = () => { const c = getCliente(Number(select.value)); if (c) inputUsuario.value = c.nombre; };
-    if (DB.clientes.length) inputUsuario.value = DB.clientes[0].nombre;
-  } else if (rol === 'worker') {
-    grupo.style.display = 'block';
-    label.innerText = 'Seleccione su perfil de trabajador';
-    select.innerHTML = DB.trabajadores.length
-      ? DB.trabajadores.map(t => `<option value="${t.id}">${escapeHTML(t.nombre)}</option>`).join('')
-      : `<option value="">No hay trabajadores registrados aún</option>`;
-    select.onchange = () => { const t = getTrabajador(Number(select.value)); if (t) inputUsuario.value = t.nombre; };
-    if (DB.trabajadores.length) inputUsuario.value = DB.trabajadores[0].nombre;
-  } else {
+  const candidatos = DB.usuarios.filter(u => u.rol === rol && u.activo);
+
+  if (rol === 'admin' && !hayAdminRegistrado()) {
     grupo.style.display = 'none';
-    select.innerHTML = '';
-    if (rol === 'admin' && !inputUsuario.value) inputUsuario.value = 'Administrador';
+    inputUsuario.value = 'Administrador';
+    return;
   }
+
+  grupo.style.display = 'block';
+  label.innerText = rol === 'client' ? 'Seleccione su usuario (negocio)' : rol === 'worker' ? 'Seleccione su usuario' : 'Seleccione su usuario administrador';
+  select.innerHTML = candidatos.length
+    ? candidatos.map(u => `<option value="${u.id}">${escapeHTML(u.nombre)}${u.entidadNombre && u.entidadNombre !== '-' ? ' — ' + escapeHTML(u.entidadNombre) : ''}</option>`).join('')
+    : `<option value="">No hay usuarios activos con este rol</option>`;
+  select.onchange = () => {
+    const u = DB.usuarios.find(x => x.id === Number(select.value));
+    inputUsuario.value = u ? u.nombre : '';
+  };
+  const primero = DB.usuarios.find(x => x.id === Number(select.value));
+  inputUsuario.value = primero ? primero.nombre : (candidatos[0] ? candidatos[0].nombre : '');
 }
 
 function togglePassword() {
@@ -591,54 +602,77 @@ function togglePassword() {
   eye.classList.toggle('fa-eye-slash', isHidden);
 }
 
+function mostrarErrorLogin(msg) {
+  const box = el('login-error');
+  box.innerText = msg;
+  box.classList.add('show');
+}
+function ocultarErrorLogin() {
+  el('login-error').classList.remove('show');
+}
+
 async function realizarLogin(e) {
   e.preventDefault();
+  ocultarErrorLogin();
   const rol = el('selectRol').value;
-  const usuario = el('inputUsuario').value.trim();
   const password = el('inputPassword').value;
+  const btn = el('btn-login');
 
-  if (!rol) { mostrarNotificacion('Seleccione un rol'); return; }
-  if (!usuario) { mostrarNotificacion('Ingrese su nombre de usuario'); return; }
-  if (!password) { mostrarNotificacion('Por favor ingrese su contraseña'); return; }
+  if (!rol) { mostrarErrorLogin('Seleccione un rol para continuar.'); return; }
+  if (!password) { mostrarErrorLogin('Ingrese su contraseña.'); return; }
 
+  btn.disabled = true;
   // Aseguramos tener los datos más recientes del servidor antes de validar el login
   await cargarEstadoRemoto();
+  btn.disabled = false;
 
-  if (rol === 'client' && !DB.clientes.length) { 
-    mostrarNotificacion('Aún no hay clientes registrados. Ingrese como Administrador para registrar el primero.'); 
-    return; 
+  const modoBootstrap = rol === 'admin' && !hayAdminRegistrado();
+
+  if (!modoBootstrap) {
+    const entidadId = el('selectEntidad').value ? Number(el('selectEntidad').value) : null;
+    if (!entidadId) { mostrarErrorLogin('Seleccione su usuario en la lista.'); return; }
+    const usuario = DB.usuarios.find(u => u.id === entidadId && u.rol === rol);
+    if (!usuario || !usuario.activo) { mostrarErrorLogin('Este usuario no existe o está desactivado. Contacte al administrador.'); return; }
+    if (usuario.password !== password) { mostrarErrorLogin('Contraseña incorrecta.'); return; }
+
+    SESSION.rol = rol;
+    SESSION.usuario = usuario.nombre;
+    SESSION.usuarioId = usuario.id;
+    SESSION.clienteId = rol === 'client' ? usuario.entidadId : null;
+    SESSION.trabajadorId = rol === 'worker' ? usuario.entidadId : null;
+    if (rol === 'client' && !getCliente(SESSION.clienteId)) { mostrarErrorLogin('Este usuario ya no tiene un negocio asociado. Contacte al administrador.'); return; }
+    if (rol === 'worker' && !getTrabajador(SESSION.trabajadorId)) { mostrarErrorLogin('Este usuario ya no tiene un perfil de trabajador asociado. Contacte al administrador.'); return; }
+  } else {
+    SESSION.rol = 'admin';
+    SESSION.usuario = 'Administrador';
+    SESSION.usuarioId = null;
+    SESSION.clienteId = null;
+    SESSION.trabajadorId = null;
   }
-  if (rol === 'worker' && !DB.trabajadores.length) { 
-    mostrarNotificacion('Aún no hay trabajadores registrados. Ingrese como Administrador para registrar el primero.'); 
-    return; 
-  }
-
-  const entidadId = el('selectEntidad').value ? Number(el('selectEntidad').value) : null;
-
-  SESSION.rol = rol; 
-  SESSION.usuario = usuario;
-  SESSION.clienteId = rol === 'client' ? entidadId : null;
-  SESSION.trabajadorId = rol === 'worker' ? entidadId : null;
   SESSION.vista = null;
 
   el('view-login').style.display = 'none';
   el('view-app').style.display = 'grid';
-  el('header-user-name').innerText = usuario;
-  el('header-avatar-initials').innerText = usuario.substring(0, 2).toUpperCase();
+  el('header-user-name').innerText = SESSION.usuario;
+  el('header-avatar-initials').innerText = SESSION.usuario.substring(0, 2).toUpperCase();
 
   if (rol === 'client') initClienteUI();
   else if (rol === 'worker') initTrabajadorUI();
   else if (rol === 'admin') initAdminUI();
 
   guardarSesionLocal();
-  mostrarNotificacion('Sesión iniciada con éxito');
+  el('inputPassword').value = '';
+  mostrarNotificacion(modoBootstrap ? 'Sesión iniciada en modo configuración inicial. Crea tu usuario administrador en Configuración → Usuarios.' : 'Sesión iniciada con éxito');
 }
 
 function cerrarSesion() {
   el('view-app').style.display = 'none';
   el('view-login').style.display = 'flex';
   el('content-container').innerHTML = '';
-  SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null; SESSION.vista = null;
+  el('form-login').reset();
+  el('grupo-entidad').style.display = 'none';
+  ocultarErrorLogin();
+  SESSION.rol = null; SESSION.usuario = null; SESSION.usuarioId = null; SESSION.clienteId = null; SESSION.trabajadorId = null; SESSION.vista = null;
   guardarSesionLocal();
   mostrarNotificacion('Sesión finalizada');
 }
@@ -665,9 +699,6 @@ function navegar(id, elx) {
   guardarSesionLocal();
 }
 
-/* Al entrar (login o recarga de página), en vez de saltar siempre al primer
-   ítem del menú, si había una vista guardada de la sesión anterior y sigue
-   existiendo para este rol, se restaura esa misma pestaña. */
 function navegarInicial(defaultId) {
   const destino = (SESSION.vista && CURRENT_ROLE_ROUTES[SESSION.vista]) ? SESSION.vista : defaultId;
   const linkDestino = document.querySelector(`#menuLateral .nav-link[data-id="${destino}"]`);
@@ -683,8 +714,6 @@ function mostrarCargaInicial(mostrar) {
 async function iniciarApp() {
   cargarSesionLocal();
   mostrarCargaInicial(true);
-  // Mientras confirmamos con el servidor, partimos de la última copia
-  // guardada en este dispositivo (si existe) para no arrancar en blanco.
   cargarCacheDB();
   const { ok } = await cargarEstadoRemotoConReintentos(2);
   mostrarCargaInicial(false);
@@ -692,7 +721,7 @@ async function iniciarApp() {
   const sesionValida = SESSION.rol && (
     (SESSION.rol === 'client' && getCliente(SESSION.clienteId)) ||
     (SESSION.rol === 'worker' && getTrabajador(SESSION.trabajadorId)) ||
-    SESSION.rol === 'admin'
+    (SESSION.rol === 'admin' && (SESSION.usuarioId === null ? !hayAdminRegistrado() : DB.usuarios.some(u => u.id === SESSION.usuarioId && u.activo)))
   );
 
   if (sesionValida) {
@@ -703,15 +732,11 @@ async function iniciarApp() {
     if (SESSION.rol === 'client') initClienteUI();
     else if (SESSION.rol === 'worker') initTrabajadorUI();
     else if (SESSION.rol === 'admin') initAdminUI();
-    if (!ok) mostrarNotificacion('Sin conexión con el servidor: mostrando la última información guardada en este dispositivo.');
+    if (!ok) mostrarNotificacion('Sin conexión con el servidor: mostrando la última información guardada en este dispositivo.', true);
   } else if (!ok && SESSION.rol) {
-    // Había una sesión guardada pero no pudimos confirmarla contra el servidor
-    // (y tampoco había copia local con ese cliente/trabajador). No cerramos la
-    // sesión de una: dejamos la pantalla de login y avisamos, para que el
-    // usuario reintente en vez de perder su acceso por un corte de red.
-    mostrarNotificacion('No se pudo conectar con el servidor para confirmar tu sesión. Verifica tu conexión e inténtalo de nuevo.');
+    mostrarNotificacion('No se pudo conectar con el servidor para confirmar tu sesión. Verifica tu conexión e inténtalo de nuevo.', true);
   } else {
-    SESSION.rol = null; SESSION.usuario = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
+    SESSION.rol = null; SESSION.usuario = null; SESSION.usuarioId = null; SESSION.clienteId = null; SESSION.trabajadorId = null;
   }
   setInterval(guardarSesionLocal, 2000);
   window.addEventListener('beforeunload', guardarSesionLocal);
@@ -809,7 +834,7 @@ function renderClienteNegocio(c) {
       ${field('Fecha de inicio', fechaLarga(n.fechaInicio))}
       ${field('Número de empleados', n.empleados)}
     </div>
-    <div class="field"><label>Descripción</label><p style="font-size:.88rem;color:#334155;">${n.descripcion}</p></div>
+    <div class="field"><label>Descripción</label><p style="font-size:.88rem;color:#334155;">${escapeHTML(n.descripcion)}</p></div>
   </div>`;
 }
 
@@ -825,7 +850,7 @@ function abrirModalSolicitarEdicion(clienteId) {
 }
 function enviarSolicitudEdicion(clienteId) {
   const mensaje = el('se-mensaje').value.trim();
-  if (!mensaje) { mostrarNotificacion('Describe el cambio que deseas solicitar'); return; }
+  if (!mensaje) { mostrarNotificacion('Describe el cambio que deseas solicitar', true); return; }
   const c = getCliente(clienteId);
   DB.solicitudesEdicion.push({
     id: DB.nextId.solicitud++,
@@ -867,13 +892,13 @@ function renderClienteInversion(c) {
       ${field('Estado de la inversión', i.estado)}
       ${field('Rentabilidad acumulada', i.rentabilidad + '%')}
     </div>
-    <div class="field"><label>Destino de la inversión</label><p style="font-size:.88rem;color:#334155;">${i.destino}</p></div>
+    <div class="field"><label>Destino de la inversión</label><p style="font-size:.88rem;color:#334155;">${escapeHTML(i.destino)}</p></div>
   </div>`;
 }
 
 function descargarContratoInversion(clienteId) {
   const c = getCliente(clienteId);
-  if (!c) { mostrarNotificacion('No se encontró información del cliente'); return; }
+  if (!c) { mostrarNotificacion('No se encontró información del cliente', true); return; }
   const i = c.inversion;
   const contenido =
 `RESUMEN DE CONTRATO DE INVERSIÓN
@@ -979,9 +1004,9 @@ function renderClientePerfil(c) {
   <div class="card-table">
     <div class="card-table-header"><h3>Editar Mi Perfil</h3></div>
     <div class="form-grid-3">
-      <div class="field"><label>Nombre completo</label><input class="form-control" value="${escapeHTML(c.nombre)}" id="perfil-nombre"></div>
+      <div class="field"><label>Nombre completo</label><input class="form-control" value="${escapeHTML(c.nombre)}" id="perfil-nombre" disabled></div>
       <div class="field"><label>Teléfono</label><input class="form-control" value="${escapeHTML(c.telefono)}" id="perfil-telefono"></div>
-      <div class="field"><label>Correo</label><input class="form-control" value="${escapeHTML(c.correo)}" id="perfil-correo"></div>
+      <div class="field"><label>Correo</label><input class="form-control" type="email" value="${escapeHTML(c.correo)}" id="perfil-correo"></div>
     </div>
     <div class="field" style="margin-bottom:16px;"><label>Dirección</label><input class="form-control" value="${escapeHTML(c.direccion)}" id="perfil-direccion"></div>
     <button class="btn-main" onclick="guardarPerfilCliente(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
@@ -989,9 +1014,11 @@ function renderClientePerfil(c) {
 }
 function guardarPerfilCliente(id) {
   const c = getCliente(id);
-  c.telefono = el('perfil-telefono').value;
-  c.correo = el('perfil-correo').value;
-  c.direccion = el('perfil-direccion').value;
+  const correo = el('perfil-correo').value.trim();
+  if (correo && !/^\S+@\S+\.\S+$/.test(correo)) { mostrarNotificacion('El correo ingresado no parece válido', true); return; }
+  c.telefono = el('perfil-telefono').value.trim();
+  c.correo = correo;
+  c.direccion = el('perfil-direccion').value.trim();
   guardarEstado();
   mostrarNotificacion('Perfil actualizado correctamente');
 }
@@ -1049,7 +1076,7 @@ function renderTrabajadorInicio(t) {
             ${negocios.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')}
           </select>
         </div>
-        <div class="field"><label>Fecha</label><input type="date" class="form-control" id="seg-fecha" value="${hoy}"></div>
+        <div class="field"><label>Fecha</label><input type="date" class="form-control" id="seg-fecha" value="${hoy}" max="${hoy}"></div>
         <div class="field"><label>Semana</label><input type="text" class="form-control" id="seg-semana" value="${semanaActualLabel()}" placeholder="Ej: Semana 19"></div>
       </div>
       <div class="form-grid-2">
@@ -1063,15 +1090,15 @@ function renderTrabajadorInicio(t) {
     <div class="form-box">
       <h4>Seguimiento Semanal — Información del Negocio</h4>
       <div class="form-grid-4">
-        <div class="field"><label>Ventas de la semana</label><input type="number" class="form-control" id="seg-ventas" placeholder="0"></div>
-        <div class="field"><label>Gastos de la semana</label><input type="number" class="form-control" id="seg-gastos" placeholder="0"></div>
+        <div class="field"><label>Ventas de la semana</label><input type="number" min="0" class="form-control" id="seg-ventas" placeholder="0"></div>
+        <div class="field"><label>Gastos de la semana</label><input type="number" min="0" class="form-control" id="seg-gastos" placeholder="0"></div>
         <div class="field"><label>Utilidad estimada</label><input type="number" class="form-control" id="seg-utilidad" placeholder="0"></div>
-        <div class="field"><label>Inventario aproximado</label><input type="number" class="form-control" id="seg-inventario" placeholder="0"></div>
+        <div class="field"><label>Inventario aproximado</label><input type="number" min="0" class="form-control" id="seg-inventario" placeholder="0"></div>
       </div>
       <div class="form-grid-3">
         <div class="field"><label>Flujo de caja</label><input type="number" class="form-control" id="seg-flujo" placeholder="0"></div>
-        <div class="field"><label>Clientes atendidos</label><input type="number" class="form-control" id="seg-clientes" placeholder="0"></div>
-        <div class="field"><label>Nuevos clientes</label><input type="number" class="form-control" id="seg-nuevosclientes" placeholder="0"></div>
+        <div class="field"><label>Clientes atendidos</label><input type="number" min="0" class="form-control" id="seg-clientes" placeholder="0"></div>
+        <div class="field"><label>Nuevos clientes</label><input type="number" min="0" class="form-control" id="seg-nuevosclientes" placeholder="0"></div>
       </div>
     </div>
 
@@ -1136,10 +1163,6 @@ function resetEvidenciasTemp() { EVID_TEMP = { fotos: [], documentos: [], factur
 
 const EVID_MAX_BYTES = 8 * 1024 * 1024; // 8MB por archivo sin comprimir (documentos/facturas)
 
-/* Redimensiona y comprime una imagen con <canvas> antes de convertirla a
-   base64. Una foto de celular normal (3-5MB) queda en unos cientos de KB,
-   que es lo que de verdad pesa dentro del estado que se sincroniza cada
-   8 segundos con el servidor. */
 function comprimirImagen(file, maxAncho = 1280, calidad = 0.75) {
   return new Promise((resolve) => {
     const reader = new FileReader();
@@ -1156,7 +1179,7 @@ function comprimirImagen(file, maxAncho = 1280, calidad = 0.75) {
         canvas.getContext('2d').drawImage(img, 0, 0, width, height);
         resolve(canvas.toDataURL('image/jpeg', calidad));
       };
-      img.onerror = () => resolve(e.target.result); // si falla la compresión, se usa el original
+      img.onerror = () => resolve(e.target.result);
       img.src = e.target.result;
     };
     reader.onerror = () => resolve(null);
@@ -1171,7 +1194,7 @@ function handleFileSelect(inputEl, tipo) {
   const validos = [];
   files.forEach(f => {
     if (!f.type.startsWith('image/') && f.size > EVID_MAX_BYTES) {
-      mostrarNotificacion(`"${f.name}" pesa más de 8MB y no se adjuntó`);
+      mostrarNotificacion(`"${f.name}" pesa más de 8MB y no se adjuntó`, true);
     } else {
       validos.push(f);
     }
@@ -1217,13 +1240,15 @@ function removeEvidenciaItem(tipo, idx) {
 }
 
 function guardarSeguimientoTrabajador(trabajadorId) {
-  if (!el('seg-semana').value.trim()) { mostrarNotificacion('Por favor indique la semana del seguimiento'); return; }
+  if (!el('seg-negocio').value) { mostrarNotificacion('Seleccione el negocio del seguimiento', true); return; }
+  if (!el('seg-fecha').value) { mostrarNotificacion('Indique la fecha del seguimiento', true); return; }
+  if (!el('seg-semana').value.trim()) { mostrarNotificacion('Por favor indique la semana del seguimiento', true); return; }
   const nuevo = {
     id: DB.nextId.seguimiento++,
     clienteId: Number(el('seg-negocio').value),
     trabajadorId: trabajadorId,
     fecha: el('seg-fecha').value,
-    semana: el('seg-semana').value,
+    semana: el('seg-semana').value.trim(),
     tipo: el('seg-tipo').value,
     ventas: Number(el('seg-ventas').value) || 0,
     gastos: Number(el('seg-gastos').value) || 0,
@@ -1234,12 +1259,12 @@ function guardarSeguimientoTrabajador(trabajadorId) {
     nuevosClientes: Number(el('seg-nuevosclientes').value) || 0,
     cumplimientoMetas: el('seg-cumplimiento').value,
     usoInversion: el('seg-usoinversion').value,
-    problemas: el('seg-problemas').value,
-    necesidades: el('seg-necesidades').value,
+    problemas: el('seg-problemas').value.trim(),
+    necesidades: el('seg-necesidades').value.trim(),
     estado: el('seg-estado').value,
-    recomendaciones: el('seg-recomendaciones').value,
-    compromisos: el('seg-compromisos').value,
-    evidencias: { fotos: EVID_TEMP.fotos, documentos: EVID_TEMP.documentos, facturas: EVID_TEMP.facturas, observaciones: el('seg-observaciones').value }
+    recomendaciones: el('seg-recomendaciones').value.trim(),
+    compromisos: el('seg-compromisos').value.trim(),
+    evidencias: { fotos: EVID_TEMP.fotos, documentos: EVID_TEMP.documentos, facturas: EVID_TEMP.facturas, observaciones: el('seg-observaciones').value.trim() }
   };
   DB.seguimientos.unshift(nuevo);
   const cli = getCliente(nuevo.clienteId);
@@ -1528,18 +1553,18 @@ function abrirModalRegistrarCliente() {
   openModal('Registrar Nuevo Cliente', `
     <div class="form-box"><h4>Datos del Cliente</h4>
       <div class="form-grid-3">
-        <div class="field"><label>Nombre completo</label><input class="form-control" id="nc-nombre"></div>
+        <div class="field"><label>Nombre completo <span class="req">*</span></label><input class="form-control" id="nc-nombre"></div>
         <div class="field"><label>Documento</label><input class="form-control" id="nc-documento"></div>
-        <div class="field"><label>Teléfono</label><input class="form-control" id="nc-telefono"></div>
+        <div class="field"><label>Teléfono <span class="req">*</span></label><input class="form-control" id="nc-telefono"></div>
       </div>
       <div class="form-grid-2">
-        <div class="field"><label>Correo</label><input class="form-control" id="nc-correo"></div>
+        <div class="field"><label>Correo</label><input class="form-control" type="email" id="nc-correo"></div>
         <div class="field"><label>Dirección</label><input class="form-control" id="nc-direccion"></div>
       </div>
     </div>
     <div class="form-box"><h4>Datos del Negocio</h4>
       <div class="form-grid-3">
-        <div class="field"><label>Nombre del negocio</label><input class="form-control" id="nc-negnombre"></div>
+        <div class="field"><label>Nombre del negocio <span class="req">*</span></label><input class="form-control" id="nc-negnombre"></div>
         <div class="field"><label>Tipo de negocio</label>
           <select class="form-control" id="nc-negtipo">${DB.categorias.map(cat => `<option>${escapeHTML(cat)}</option>`).join('')}</select>
         </div>
@@ -1548,20 +1573,20 @@ function abrirModalRegistrarCliente() {
       <div class="form-grid-3">
         <div class="field"><label>Dirección</label><input class="form-control" id="nc-negdireccion"></div>
         <div class="field"><label>Fecha de inicio</label><input type="date" class="form-control" id="nc-fechainicio"></div>
-        <div class="field"><label>N° empleados</label><input type="number" class="form-control" id="nc-empleados" placeholder="1"></div>
+        <div class="field"><label>N° empleados</label><input type="number" min="0" class="form-control" id="nc-empleados" placeholder="1"></div>
       </div>
       <div class="field"><label>Descripción</label><textarea class="form-control" rows="2" id="nc-descripcion"></textarea></div>
     </div>
     <div class="form-box" style="margin-bottom:12px;"><h4>Información de Inversión</h4>
       <div class="form-grid-3">
-        <div class="field"><label>Capital solicitado</label><input type="number" class="form-control" id="nc-solicitado"></div>
-        <div class="field"><label>Capital aprobado</label><input type="number" class="form-control" id="nc-aprobado"></div>
-        <div class="field"><label>Capital recibido</label><input type="number" class="form-control" id="nc-recibido"></div>
+        <div class="field"><label>Capital solicitado</label><input type="number" min="0" class="form-control" id="nc-solicitado"></div>
+        <div class="field"><label>Capital aprobado</label><input type="number" min="0" class="form-control" id="nc-aprobado"></div>
+        <div class="field"><label>Capital recibido</label><input type="number" min="0" class="form-control" id="nc-recibido"></div>
       </div>
       <div class="form-grid-3">
         <div class="field"><label>Fecha de inversión</label><input type="date" class="form-control" id="nc-fechainversion"></div>
         <div class="field"><label>Tipo de inversión</label><input class="form-control" id="nc-tipoinversion" placeholder="Ej: Capital semilla"></div>
-        <div class="field"><label>Participación JORAN (%)</label><input type="number" class="form-control" id="nc-participacion" placeholder="0"></div>
+        <div class="field"><label>Participación JORAN (%)</label><input type="number" min="0" max="100" class="form-control" id="nc-participacion" placeholder="0"></div>
       </div>
       <div class="field"><label>Destino de la inversión</label><textarea class="form-control" rows="2" id="nc-destino"></textarea></div>
     </div>
@@ -1570,33 +1595,42 @@ function abrirModalRegistrarCliente() {
 }
 
 function guardarNuevoCliente() {
+  const nombre = el('nc-nombre').value.trim();
+  const telefono = el('nc-telefono').value.trim();
+  const negnombre = el('nc-negnombre').value.trim();
+  if (!nombre) { mostrarNotificacion('Ingrese el nombre completo del cliente', true); return; }
+  if (!telefono) { mostrarNotificacion('Ingrese el teléfono del cliente', true); return; }
+  if (!negnombre) { mostrarNotificacion('Ingrese el nombre del negocio', true); return; }
+  const correo = el('nc-correo').value.trim();
+  if (correo && !/^\S+@\S+\.\S+$/.test(correo)) { mostrarNotificacion('El correo ingresado no parece válido', true); return; }
+
   const id = DB.nextId.cliente++;
   DB.clientes.push({
-    id, 
-    nombre: el('nc-nombre').value || 'Nuevo Cliente', 
-    documento: el('nc-documento').value, 
-    telefono: el('nc-telefono').value,
-    correo: el('nc-correo').value, 
-    direccion: el('nc-direccion').value,
-    negocio: { 
-      nombre: el('nc-negnombre').value || 'Nuevo Negocio', 
-      tipo: el('nc-negtipo').value, 
-      direccion: el('nc-negdireccion').value, 
-      ciudad: el('nc-ciudad').value, 
-      fechaInicio: el('nc-fechainicio').value, 
-      descripcion: el('nc-descripcion').value, 
-      empleados: Number(el('nc-empleados').value) || 1 
+    id,
+    nombre,
+    documento: el('nc-documento').value.trim(),
+    telefono,
+    correo,
+    direccion: el('nc-direccion').value.trim(),
+    negocio: {
+      nombre: negnombre,
+      tipo: el('nc-negtipo').value,
+      direccion: el('nc-negdireccion').value.trim(),
+      ciudad: el('nc-ciudad').value.trim(),
+      fechaInicio: el('nc-fechainicio').value,
+      descripcion: el('nc-descripcion').value.trim(),
+      empleados: Number(el('nc-empleados').value) || 1
     },
-    inversion: { 
-      solicitado: Number(el('nc-solicitado').value) || 0, 
-      aprobado: Number(el('nc-aprobado').value) || 0, 
-      recibido: Number(el('nc-recibido').value) || 0, 
-      fecha: el('nc-fechainversion').value, 
-      tipo: el('nc-tipoinversion').value, 
-      participacion: Number(el('nc-participacion').value) || 0, 
-      destino: el('nc-destino').value, 
-      estado: 'Activa', 
-      rentabilidad: 0 
+    inversion: {
+      solicitado: Number(el('nc-solicitado').value) || 0,
+      aprobado: Number(el('nc-aprobado').value) || 0,
+      recibido: Number(el('nc-recibido').value) || 0,
+      fecha: el('nc-fechainversion').value,
+      tipo: el('nc-tipoinversion').value.trim(),
+      participacion: Number(el('nc-participacion').value) || 0,
+      destino: el('nc-destino').value.trim(),
+      estado: 'Activa',
+      rentabilidad: 0
     },
     resultados: { ventas: 0, gastos: 0, utilidad: 0, inventario: 0, deudas: 0, metas: 0 },
     estado: 'optimo'
@@ -1613,6 +1647,9 @@ function eliminarCliente(id) {
     DB.clientes = DB.clientes.filter(x => x.id !== id);
     DB.seguimientos = DB.seguimientos.filter(s => s.clienteId !== id);
     DB.trabajadores.forEach(t => { t.negocios = t.negocios.filter(nid => nid !== id); });
+    // Los usuarios de login que apuntaban a este cliente quedan desactivados,
+    // para que nadie pueda seguir entrando a un negocio que ya no existe.
+    DB.usuarios.forEach(u => { if (u.rol === 'client' && u.entidadId === id) u.activo = false; });
     guardarEstado();
     mostrarNotificacion('Cliente eliminado correctamente');
     navegar('a-clientes');
@@ -1709,8 +1746,8 @@ function abrirModalRegistrarTrabajador() {
   if (!DB.clientes.length) { mostrarNotificacion('Registra al menos un cliente antes de asignar negocios a un trabajador'); }
   openModal('Registrar Nuevo Trabajador', `
     <div class="form-grid-2">
-      <div class="field"><label>Nombre</label><input class="form-control" id="nt-nombre"></div>
-      <div class="field"><label>Teléfono</label><input class="form-control" id="nt-telefono"></div>
+      <div class="field"><label>Nombre <span class="req">*</span></label><input class="form-control" id="nt-nombre"></div>
+      <div class="field"><label>Teléfono <span class="req">*</span></label><input class="form-control" id="nt-telefono"></div>
     </div>
     <div class="field" style="margin:14px 0;"><label>Negocios a asignar</label>
       <select class="form-control" id="nt-negocios" multiple size="5" ${DB.clientes.length ? '' : 'disabled'}>
@@ -1722,8 +1759,12 @@ function abrirModalRegistrarTrabajador() {
 }
 
 function guardarNuevoTrabajador() {
-  const sel = Array.from(el('nt-negocios').selectedOptions).map(o => Number(o.value));
-  DB.trabajadores.push({ id: DB.nextId.trabajador++, nombre: el('nt-nombre').value || 'Nuevo Trabajador', telefono: el('nt-telefono').value, negocios: sel });
+  const nombre = el('nt-nombre').value.trim();
+  const telefono = el('nt-telefono').value.trim();
+  if (!nombre) { mostrarNotificacion('Ingrese el nombre del trabajador', true); return; }
+  if (!telefono) { mostrarNotificacion('Ingrese el teléfono del trabajador', true); return; }
+  const sel = Array.from(el('nt-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v));
+  DB.trabajadores.push({ id: DB.nextId.trabajador++, nombre, telefono, negocios: sel });
   closeModal();
   mostrarNotificacion('Trabajador registrado correctamente');
   navegar('a-trabajadores');
@@ -1734,6 +1775,7 @@ function eliminarTrabajador(id) {
   if (!t) return;
   confirmarAccion(`¿Eliminar al trabajador ${t.nombre}? Sus negocios asignados quedarán sin trabajador y sus seguimientos históricos se conservarán.`, () => {
     DB.trabajadores = DB.trabajadores.filter(x => x.id !== id);
+    DB.usuarios.forEach(u => { if (u.rol === 'worker' && u.entidadId === id) u.activo = false; });
     guardarEstado();
     mostrarNotificacion('Trabajador eliminado correctamente');
     navegar('a-trabajadores');
@@ -1777,28 +1819,30 @@ function renderAdminInversiones() {
 }
 
 function abrirModalNuevaInversion() {
-  if (!DB.clientes.length) { mostrarNotificacion('Registra al menos un cliente antes de crear una inversión'); return; }
+  if (!DB.clientes.length) { mostrarNotificacion('Registra al menos un cliente antes de crear una inversión', true); return; }
   openModal('Registrar Nueva Inversión', `
     <div class="field" style="margin-bottom:14px;"><label>Cliente</label>
       <select class="form-control" id="ni-cliente">${DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')}</select>
     </div>
     <div class="form-grid-3">
-      <div class="field"><label>Capital aprobado</label><input type="number" class="form-control" id="ni-capital"></div>
+      <div class="field"><label>Capital aprobado <span class="req">*</span></label><input type="number" min="0" class="form-control" id="ni-capital"></div>
       <div class="field"><label>Fecha</label><input type="date" class="form-control" id="ni-fecha"></div>
       <div class="field"><label>Tipo de inversión</label><input class="form-control" id="ni-tipo" placeholder="Ej: Capital de expansión"></div>
     </div>
-    <div class="field" style="margin-bottom:14px;"><label>Participación JORAN (%)</label><input type="number" class="form-control" id="ni-participacion" placeholder="0"></div>
+    <div class="field" style="margin-bottom:14px;"><label>Participación JORAN (%)</label><input type="number" min="0" max="100" class="form-control" id="ni-participacion" placeholder="0"></div>
     <button class="btn-main" onclick="guardarNuevaInversion()"><i class="fa-solid fa-floppy-disk"></i> Registrar Inversión</button>
   `);
 }
 
 function guardarNuevaInversion() {
+  const capital = Number(el('ni-capital').value) || 0;
+  if (capital <= 0) { mostrarNotificacion('Ingrese un capital aprobado mayor a cero', true); return; }
   const c = getCliente(Number(el('ni-cliente').value));
   if (c) {
-    c.inversion.aprobado += Number(el('ni-capital').value) || 0;
+    c.inversion.aprobado += capital;
     c.inversion.recibido = c.inversion.aprobado;
     c.inversion.fecha = el('ni-fecha').value || c.inversion.fecha;
-    c.inversion.tipo = el('ni-tipo').value || c.inversion.tipo;
+    c.inversion.tipo = el('ni-tipo').value.trim() || c.inversion.tipo;
     c.inversion.participacion = Number(el('ni-participacion').value) || c.inversion.participacion;
   }
   closeModal();
@@ -1951,9 +1995,6 @@ const CFG_MODULOS = [
   { grupo: 'admin', id: 'a-configuracion', label: 'Configuración' }
 ];
 
-/* Garantiza que DB.permisos tenga entrada para cada rol/módulo (por defecto
-   habilitado), incluso si se agregan módulos nuevos más adelante o si la
-   base de datos venía de una versión anterior sin esta estructura. */
 function asegurarPermisosDefault() {
   if (!DB.permisos) DB.permisos = {};
   ['client', 'worker', 'admin'].forEach(rol => {
@@ -1964,8 +2005,6 @@ function asegurarPermisosDefault() {
   });
 }
 
-/* El módulo de Configuración y el de Dashboard nunca se pueden ocultar
-   para el admin, para evitar que quede fuera de su propio panel. */
 function itemsMenuFiltrados(rol, items) {
   asegurarPermisosDefault();
   return items.filter(it => it.id === 'a-configuracion' || it.id === 'a-dashboard' || DB.permisos[rol][it.id] !== false);
@@ -1990,7 +2029,6 @@ function renderAdminConfiguracion() {
   `;
 }
 
-/* ---- Parámetros (ya existía, se mantiene igual) ---- */
 function renderCfgParametros() {
   const p = DB.parametros;
   return `
@@ -2001,21 +2039,26 @@ function renderCfgParametros() {
       <div class="field"><label>Moneda principal</label><input class="form-control" value="${escapeHTML(p.moneda)}" id="cfg-moneda"></div>
       <div class="field"><label>Periodo de seguimiento</label><input class="form-control" value="${escapeHTML(p.periodoSeguimiento)}" id="cfg-periodo"></div>
     </div>
-    <div class="field" style="margin-bottom:16px;max-width:260px;"><label>Meta mínima cumplimiento (%)</label><input type="number" class="form-control" value="${p.metaCumplimientoMinimo}" id="cfg-cumplimiento"></div>
+    <div class="field" style="margin-bottom:16px;max-width:260px;"><label>Meta mínima cumplimiento (%)</label><input type="number" min="0" max="100" class="form-control" value="${p.metaCumplimientoMinimo}" id="cfg-cumplimiento"></div>
     <button class="btn-main" onclick="guardarConfiguracionAdmin()"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
   </div>`;
 }
 
 function guardarConfiguracionAdmin() {
-  DB.parametros.nombreEmpresa = el('cfg-nombre').value;
-  DB.parametros.moneda = el('cfg-moneda').value;
-  DB.parametros.periodoSeguimiento = el('cfg-periodo').value;
+  const nombre = el('cfg-nombre').value.trim();
+  if (!nombre) { mostrarNotificacion('El nombre de la empresa no puede quedar vacío', true); return; }
+  DB.parametros.nombreEmpresa = nombre;
+  DB.parametros.moneda = el('cfg-moneda').value.trim() || DB.parametros.moneda;
+  DB.parametros.periodoSeguimiento = el('cfg-periodo').value.trim() || DB.parametros.periodoSeguimiento;
   DB.parametros.metaCumplimientoMinimo = Number(el('cfg-cumplimiento').value) || 80;
   guardarEstado();
   mostrarNotificacion('Configuración guardada correctamente');
 }
 
-/* ---- Usuarios ---- */
+/* ---- Usuarios ----
+   Cada usuario del directorio es también una credencial de acceso real:
+   nombre, rol, contraseña y (para cliente/trabajador) el negocio o perfil
+   al que queda vinculado mediante entidadId. */
 function nombreRol(rol) { return rol === 'client' ? 'Cliente' : rol === 'worker' ? 'Trabajador' : 'Administrador'; }
 function renderCfgUsuarios() {
   return `
@@ -2024,11 +2067,11 @@ function renderCfgUsuarios() {
       <h3>Usuarios de la Plataforma</h3>
       <button class="btn-main" onclick="abrirModalRegistrarUsuario()"><i class="fa-solid fa-user-plus"></i> Registrar Usuario</button>
     </div>
-    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Directorio de personas con acceso a la plataforma. El acceso real se hace eligiendo Rol + Negocio/Perfil en el login.</p>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Estos son los usuarios con acceso real al login. Cada uno inicia sesión con su nombre + rol + contraseña.</p>
     <div class="table-scroll"><table>
       <thead><tr><th>Nombre</th><th>Rol</th><th>Entidad Asociada</th><th>Estado</th><th></th></tr></thead>
       <tbody>
-        ${DB.usuarios.length ? DB.usuarios.map(u => `<tr><td><b>${escapeHTML(u.nombre)}</b></td><td>${nombreRol(u.rol)}</td><td>${escapeHTML(u.entidadNombre || '-')}</td><td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td><td style="display:flex;gap:6px;"><button class="btn-secondary" onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button><button class="btn-danger" onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="5" class="empty-state">Aún no hay usuarios registrados.</td></tr>`}
+        ${DB.usuarios.length ? DB.usuarios.map(u => `<tr><td><b>${escapeHTML(u.nombre)}</b></td><td>${nombreRol(u.rol)}</td><td>${escapeHTML(u.entidadNombre || '-')}</td><td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td><td style="display:flex;gap:6px;"><button class="btn-secondary" onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button><button class="btn-secondary" onclick="abrirModalCambiarPassword(${u.id})">Cambiar clave</button><button class="btn-danger" onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="5" class="empty-state">Aún no hay usuarios registrados. Sin usuarios de rol Cliente o Trabajador, nadie más podrá iniciar sesión con esos roles.</td></tr>`}
       </tbody>
     </table></div>
   </div>`;
@@ -2037,7 +2080,7 @@ function renderCfgUsuarios() {
 function abrirModalRegistrarUsuario() {
   openModal('Registrar Nuevo Usuario', `
     <div class="form-grid-2">
-      <div class="field"><label>Nombre</label><input class="form-control" id="nu-nombre"></div>
+      <div class="field"><label>Nombre <span class="req">*</span></label><input class="form-control" id="nu-nombre"></div>
       <div class="field"><label>Rol</label>
         <select class="form-control" id="nu-rol" onchange="handleRolUsuarioChange()">
           <option value="client">Cliente</option>
@@ -2046,9 +2089,12 @@ function abrirModalRegistrarUsuario() {
         </select>
       </div>
     </div>
-    <div class="field" style="margin:14px 0;" id="nu-grupo-entidad">
-      <label>Negocio asociado</label>
-      <select class="form-control" id="nu-entidad">${DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') || '<option value="">No hay clientes registrados</option>'}</select>
+    <div class="form-grid-2">
+      <div class="field" id="nu-grupo-entidad">
+        <label>Negocio asociado</label>
+        <select class="form-control" id="nu-entidad">${DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') || '<option value="">No hay clientes registrados</option>'}</select>
+      </div>
+      <div class="field"><label>Contraseña de acceso <span class="req">*</span></label><input type="password" class="form-control" id="nu-password" placeholder="Mínimo 4 caracteres"></div>
     </div>
     <button class="btn-main" onclick="guardarNuevoUsuario()"><i class="fa-solid fa-floppy-disk"></i> Registrar Usuario</button>
   `);
@@ -2072,15 +2118,46 @@ function handleRolUsuarioChange() {
 function guardarNuevoUsuario() {
   const rol = el('nu-rol').value;
   const nombre = el('nu-nombre').value.trim();
-  if (!nombre) { mostrarNotificacion('Ingrese el nombre del usuario'); return; }
-  let entidadNombre = '-';
-  if (rol === 'client') { const c = getCliente(Number(el('nu-entidad').value)); entidadNombre = c ? c.negocio.nombre : '-'; }
-  if (rol === 'worker') { const t = getTrabajador(Number(el('nu-entidad').value)); entidadNombre = t ? t.nombre : '-'; }
-  DB.usuarios.push({ id: DB.nextId.usuario++, nombre, rol, entidadNombre, activo: true });
+  const password = el('nu-password').value;
+  if (!nombre) { mostrarNotificacion('Ingrese el nombre del usuario', true); return; }
+  if (!password || password.length < 4) { mostrarNotificacion('La contraseña debe tener al menos 4 caracteres', true); return; }
+
+  let entidadId = null, entidadNombre = '-';
+  if (rol === 'client') {
+    entidadId = Number(el('nu-entidad').value) || null;
+    const c = getCliente(entidadId);
+    if (!c) { mostrarNotificacion('Seleccione un negocio válido para este cliente', true); return; }
+    entidadNombre = c.negocio.nombre;
+  }
+  if (rol === 'worker') {
+    entidadId = Number(el('nu-entidad').value) || null;
+    const t = getTrabajador(entidadId);
+    if (!t) { mostrarNotificacion('Seleccione un trabajador válido', true); return; }
+    entidadNombre = t.nombre;
+  }
+  DB.usuarios.push({ id: DB.nextId.usuario++, nombre, rol, entidadId, entidadNombre, password, activo: true });
   closeModal();
   mostrarNotificacion('Usuario registrado correctamente');
   navegar('a-configuracion');
   setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[1]; if (btn) btn.click(); }, 30);
+}
+
+function abrirModalCambiarPassword(id) {
+  const u = DB.usuarios.find(x => x.id === id);
+  if (!u) return;
+  openModal(`Cambiar contraseña — ${escapeHTML(u.nombre)}`, `
+    <div class="field" style="margin-bottom:14px;"><label>Nueva contraseña</label><input type="password" class="form-control" id="cp-password" placeholder="Mínimo 4 caracteres"></div>
+    <button class="btn-main" onclick="guardarCambioPassword(${id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Nueva Contraseña</button>
+  `);
+}
+function guardarCambioPassword(id) {
+  const u = DB.usuarios.find(x => x.id === id);
+  if (!u) return;
+  const password = el('cp-password').value;
+  if (!password || password.length < 4) { mostrarNotificacion('La contraseña debe tener al menos 4 caracteres', true); return; }
+  u.password = password;
+  closeModal();
+  mostrarNotificacion('Contraseña actualizada correctamente');
 }
 
 function toggleUsuarioActivo(id) {
@@ -2093,7 +2170,7 @@ function toggleUsuarioActivo(id) {
 }
 
 function eliminarUsuario(id) {
-  confirmarAccion('¿Eliminar este usuario del directorio?', () => {
+  confirmarAccion('¿Eliminar este usuario del directorio? Ya no podrá iniciar sesión con esas credenciales.', () => {
     DB.usuarios = DB.usuarios.filter(u => u.id !== id);
     guardarEstado();
     mostrarNotificacion('Usuario eliminado');
@@ -2151,7 +2228,7 @@ function renderCfgMetas() {
             <td><b>${escapeHTML(c.negocio.nombre)}</b></td>
             <td>${escapeHTML(c.nombre)}</td>
             <td>${formatCOP(c.resultados.ventas)}</td>
-            <td><input type="number" class="form-control" style="max-width:150px;" id="meta-${c.id}" value="${c.resultados.metas}"></td>
+            <td><input type="number" min="0" class="form-control" style="max-width:150px;" id="meta-${c.id}" value="${c.resultados.metas}"></td>
             <td>${pct.toFixed(1)}%</td>
             <td><button class="btn-secondary" onclick="guardarMetaCliente(${c.id})">Guardar</button></td>
           </tr>`;
@@ -2187,8 +2264,8 @@ function renderCfgCategorias() {
 
 function agregarCategoria() {
   const val = el('nueva-categoria').value.trim();
-  if (!val) { mostrarNotificacion('Escribe el nombre de la categoría'); return; }
-  if (DB.categorias.some(c => c.toLowerCase() === val.toLowerCase())) { mostrarNotificacion('Esa categoría ya existe'); return; }
+  if (!val) { mostrarNotificacion('Escribe el nombre de la categoría', true); return; }
+  if (DB.categorias.some(c => c.toLowerCase() === val.toLowerCase())) { mostrarNotificacion('Esa categoría ya existe', true); return; }
   DB.categorias.push(val);
   guardarEstado();
   navegar('a-configuracion');
@@ -2196,10 +2273,13 @@ function agregarCategoria() {
 }
 
 function eliminarCategoria(idx) {
-  DB.categorias.splice(idx, 1);
-  guardarEstado();
-  navegar('a-configuracion');
-  setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[4]; if (btn) btn.click(); }, 30);
+  const nombre = DB.categorias[idx];
+  confirmarAccion(`¿Eliminar la categoría "${nombre}"? Los negocios que ya la tienen asignada conservarán el valor actual.`, () => {
+    DB.categorias.splice(idx, 1);
+    guardarEstado();
+    navegar('a-configuracion');
+    setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[4]; if (btn) btn.click(); }, 30);
+  });
 }
 </script>
 </body>
