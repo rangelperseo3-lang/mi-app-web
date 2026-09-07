@@ -15,7 +15,7 @@ const PORT = process.env.PORT || 3000;
 const MONGO_URI = process.env.MONGO_URI;
 
 if (!MONGO_URI) {
-  console.error("mongodb+srv://ran9282148_db_user:dr9609208@cluster0.hr7feyk.mongodb.net/?appName=Cluster0");
+  console.error("");
 }
 
 // Conexión a la base de datos compartida en la nube
