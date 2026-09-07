@@ -835,15 +835,18 @@ function renderClienteNegocio(c) {
       ${field('Número de empleados', n.empleados)}
     </div>
     <div class="field"><label>Descripción</label><p style="font-size:.88rem;color:#334155;">${escapeHTML(n.descripcion)}</p></div>
-  </div>`;
+  </div>
+  ${renderSolicitudesCliente(c.id)}`;
 }
 
+const SOLICITUD_MAX_CHARS = 500;
 function abrirModalSolicitarEdicion(clienteId) {
   openModal('Solicitar Edición de Datos del Negocio', `
-    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px;">Describe el cambio que deseas solicitar. Un administrador de JORAN revisará tu solicitud y la marcará como atendida.</p>
-    <div class="field" style="margin-bottom:14px;">
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:12px;">Describe el cambio que deseas solicitar. Un administrador de JORAN revisará tu solicitud y te responderá aquí mismo.</p>
+    <div class="field" style="margin-bottom:6px;">
       <label>Detalle de la solicitud</label>
-      <textarea class="form-control" rows="4" id="se-mensaje" placeholder="Ej: Actualizar dirección del negocio, corregir número de empleados, etc."></textarea>
+      <textarea class="form-control" rows="4" id="se-mensaje" maxlength="${SOLICITUD_MAX_CHARS}" oninput="el('se-contador').innerText = this.value.length + '/${SOLICITUD_MAX_CHARS}'" placeholder="Ej: Actualizar dirección del negocio, corregir número de empleados, etc."></textarea>
+      <div style="text-align:right;font-size:.7rem;color:var(--text-muted);margin-top:3px;" id="se-contador">0/${SOLICITUD_MAX_CHARS}</div>
     </div>
     <button class="btn-main" onclick="enviarSolicitudEdicion(${clienteId})"><i class="fa-solid fa-paper-plane"></i> Enviar Solicitud</button>
   `);
@@ -851,6 +854,9 @@ function abrirModalSolicitarEdicion(clienteId) {
 function enviarSolicitudEdicion(clienteId) {
   const mensaje = el('se-mensaje').value.trim();
   if (!mensaje) { mostrarNotificacion('Describe el cambio que deseas solicitar', true); return; }
+  if (mensaje.length > SOLICITUD_MAX_CHARS) { mostrarNotificacion(`El mensaje no puede superar ${SOLICITUD_MAX_CHARS} caracteres`, true); return; }
+  const hayPendiente = DB.solicitudesEdicion.some(s => s.clienteId === clienteId && s.estado === 'Pendiente');
+  if (hayPendiente) { mostrarNotificacion('Ya tienes una solicitud pendiente de respuesta. Espera a que el administrador la atienda antes de enviar otra.', true); return; }
   const c = getCliente(clienteId);
   DB.solicitudesEdicion.push({
     id: DB.nextId.solicitud++,
@@ -859,10 +865,32 @@ function enviarSolicitudEdicion(clienteId) {
     negocioNombre: c ? c.negocio.nombre : '-',
     mensaje,
     fecha: new Date().toISOString().slice(0, 10),
-    estado: 'Pendiente'
+    estado: 'Pendiente',
+    respuesta: '',
+    fechaRespuesta: null
   });
   closeModal();
   mostrarNotificacion('Solicitud de edición enviada al Administrador');
+}
+
+function renderSolicitudesCliente(clienteId) {
+  const list = DB.solicitudesEdicion.filter(s => s.clienteId === clienteId).sort((a, b) => b.fecha.localeCompare(a.fecha));
+  if (!list.length) return '';
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Mis Solicitudes de Edición</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Solicitud</th><th>Estado</th><th>Respuesta del Administrador</th></tr></thead>
+      <tbody>
+        ${list.map(s => `<tr>
+          <td>${fechaLarga(s.fecha)}</td>
+          <td>${escapeHTML(s.mensaje)}</td>
+          <td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : '<span class="badge badge-green">Atendida</span>'}</td>
+          <td>${s.respuesta ? escapeHTML(s.respuesta) : '<span style="color:var(--text-muted);">Sin respuesta aún</span>'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table></div>
+  </div>`;
 }
 function field(label, value, esHTML) {
   const vacio = value === undefined || value === null || value === '';
@@ -1502,19 +1530,55 @@ function renderAdminDashboard() {
 }
 
 function tablaSolicitudesEdicion() {
-  const list = [...DB.solicitudesEdicion].sort((a, b) => b.fecha.localeCompare(a.fecha));
-  return `<table>
-    <thead><tr><th>Fecha</th><th>Cliente</th><th>Negocio</th><th>Solicitud</th><th>Estado</th><th></th></tr></thead>
-    <tbody>${list.length ? list.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${escapeHTML(s.clienteNombre)}</td><td>${escapeHTML(s.negocioNombre)}</td><td>${escapeHTML(s.mensaje)}</td><td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : '<span class="badge badge-green">Atendida</span>'}</td><td>${s.estado === 'Pendiente' ? `<button class="btn-secondary" onclick="atenderSolicitudEdicion(${s.id})">Marcar como atendida</button>` : ''}</td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">No hay solicitudes de edición registradas.</td></tr>`}</tbody>
+  // Pendientes primero (para que el admin no tenga que buscarlas), luego por fecha descendente.
+  const list = [...DB.solicitudesEdicion].sort((a, b) => {
+    if (a.estado !== b.estado) return a.estado === 'Pendiente' ? -1 : 1;
+    return b.fecha.localeCompare(a.fecha);
+  });
+  const pendientes = list.filter(s => s.estado === 'Pendiente').length;
+  return `
+  ${pendientes ? `<p style="font-size:.78rem;color:var(--warning-amber);font-weight:700;margin-bottom:10px;"><i class="fa-solid fa-circle-exclamation"></i> ${pendientes} solicitud${pendientes === 1 ? '' : 'es'} pendiente${pendientes === 1 ? '' : 's'} de respuesta</p>` : ''}
+  <table>
+    <thead><tr><th>Fecha</th><th>Cliente</th><th>Negocio</th><th>Solicitud</th><th>Estado</th><th>Respuesta</th><th></th></tr></thead>
+    <tbody>${list.length ? list.map(s => `<tr>
+      <td>${fechaLarga(s.fecha)}</td>
+      <td>${escapeHTML(s.clienteNombre)}</td>
+      <td>${escapeHTML(s.negocioNombre)}</td>
+      <td>${escapeHTML(s.mensaje)}</td>
+      <td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : '<span class="badge badge-green">Atendida</span>'}</td>
+      <td>${s.respuesta ? escapeHTML(s.respuesta) : '-'}</td>
+      <td style="display:flex;gap:6px;">
+        ${getCliente(s.clienteId) ? `<button class="btn-secondary" onclick="verClienteDetalle(${s.clienteId})">Ver cliente</button>` : ''}
+        ${s.estado === 'Pendiente' ? `<button class="btn-main" onclick="abrirModalAtenderSolicitud(${s.id})">Responder</button>` : ''}
+      </td>
+    </tr>`).join('') : `<tr><td colspan="7" class="empty-state">No hay solicitudes de edición registradas.</td></tr>`}</tbody>
   </table>`;
+}
+
+function abrirModalAtenderSolicitud(id) {
+  const s = DB.solicitudesEdicion.find(x => x.id === id);
+  if (!s) return;
+  openModal(`Responder Solicitud — ${escapeHTML(s.clienteNombre)}`, `
+    <p style="font-size:.85rem;color:#334155;background:#f8fafc;border:1px solid var(--border-color);border-radius:8px;padding:10px 12px;margin-bottom:14px;">${escapeHTML(s.mensaje)}</p>
+    <div class="field" style="margin-bottom:14px;">
+      <label>Respuesta para el cliente (opcional, pero recomendado)</label>
+      <textarea class="form-control" rows="3" id="ar-respuesta" placeholder="Ej: Se actualizó la dirección del negocio con éxito."></textarea>
+    </div>
+    <p style="font-size:.76rem;color:var(--text-muted);margin-bottom:14px;">Recuerda hacer tú mismo el cambio solicitado desde la ficha del cliente antes de marcarla como atendida.</p>
+    <button class="btn-main" onclick="atenderSolicitudEdicion(${id})"><i class="fa-solid fa-check"></i> Marcar como Atendida</button>
+  `);
 }
 
 function atenderSolicitudEdicion(id) {
   const s = DB.solicitudesEdicion.find(x => x.id === id);
   if (!s) return;
+  const respuestaEl = el('ar-respuesta');
   s.estado = 'Atendida';
-  guardarEstado();
-  el('tabla-solicitudes-edicion').innerHTML = tablaSolicitudesEdicion();
+  s.respuesta = respuestaEl ? respuestaEl.value.trim() : (s.respuesta || '');
+  s.fechaRespuesta = new Date().toISOString().slice(0, 10);
+  closeModal();
+  const tabla = el('tabla-solicitudes-edicion');
+  if (tabla) tabla.innerHTML = tablaSolicitudesEdicion();
   mostrarNotificacion('Solicitud marcada como atendida');
 }
 
