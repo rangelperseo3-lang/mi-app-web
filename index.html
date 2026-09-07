@@ -1045,15 +1045,18 @@ function renderTrabajadorInicio(t) {
       <h4>Datos del Cliente</h4>
       <div class="form-grid-3">
         <div class="field"><label>Negocio</label>
-          <select class="form-control" id="seg-negocio">
+          <select class="form-control" id="seg-negocio" onchange="actualizarTelefonoClienteSeg()">
             ${negocios.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')}
           </select>
         </div>
         <div class="field"><label>Fecha</label><input type="date" class="form-control" id="seg-fecha" value="${hoy}"></div>
         <div class="field"><label>Semana</label><input type="text" class="form-control" id="seg-semana" value="${semanaActualLabel()}" placeholder="Ej: Semana 19"></div>
       </div>
-      <div class="field"><label>Tipo de seguimiento</label>
-        <select class="form-control" id="seg-tipo" style="max-width:220px;"><option>Presencial</option><option>Telefónico</option></select>
+      <div class="form-grid-2">
+        <div class="field"><label>Tipo de seguimiento</label>
+          <select class="form-control" id="seg-tipo"><option>Presencial</option><option>Telefónico</option></select>
+        </div>
+        <div class="field"><label>Teléfono del cliente</label><input type="text" class="form-control" id="seg-tel-cliente" readonly value="${escapeHTML((negocios[0] || {}).telefono || '')}"></div>
       </div>
     </div>
 
@@ -1117,6 +1120,14 @@ function renderTrabajadorInicio(t) {
       <div class="field" style="margin-top:12px;"><label>Observaciones</label><textarea class="form-control" rows="2" id="seg-observaciones" placeholder="Observaciones generales de la visita"></textarea></div>
     </div>
   </div>`;
+}
+
+function actualizarTelefonoClienteSeg() {
+  const sel = el('seg-negocio');
+  const tel = el('seg-tel-cliente');
+  if (!sel || !tel) return;
+  const c = getCliente(Number(sel.value));
+  tel.value = c ? (c.telefono || '') : '';
 }
 
 /* ---------------- Evidencias ---------------- */
@@ -1255,7 +1266,7 @@ function renderTrabajadorNegocios(t) {
       <tbody>
         ${negocios.map(c => {
           const u = ultimoSeguimiento(c.id);
-          return `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.telefono)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${badgeEstado(c.estado)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td><td><button class="btn-main" onclick="navegar('w-inicio'); setTimeout(() => { if(document.getElementById('seg-negocio')) document.getElementById('seg-negocio').value=${c.id}; }, 50);">Reportar</button></td></tr>`;
+          return `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.telefono)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${badgeEstado(c.estado)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td><td><button class="btn-main" onclick="navegar('w-inicio'); setTimeout(() => { if(document.getElementById('seg-negocio')) { document.getElementById('seg-negocio').value=${c.id}; actualizarTelefonoClienteSeg(); } }, 50);">Reportar</button></td></tr>`;
         }).join('')}
       </tbody>
     </table></div>
@@ -1386,7 +1397,7 @@ function renderEvidenciasDetalle(ev) {
    ========================================================= */
 function initAdminUI() {
   el('header-user-role').innerText = 'Administrador General';
-  setMenu([
+  setMenu(itemsMenuFiltrados('admin', [
     { id: 'a-dashboard', label: 'Dashboard', icon: 'fa-chart-pie' },
     { id: 'a-clientes', label: 'Clientes', icon: 'fa-users' },
     { id: 'a-trabajadores', label: 'Trabajadores', icon: 'fa-user-tie' },
@@ -1394,7 +1405,7 @@ function initAdminUI() {
     { id: 'a-seguimientos', label: 'Seguimientos', icon: 'fa-list-check' },
     { id: 'a-reportes', label: 'Reportes', icon: 'fa-file-lines' },
     { id: 'a-configuracion', label: 'Configuración', icon: 'fa-gear' }
-  ]);
+  ]));
   CURRENT_ROLE_ROUTES = {
     'a-dashboard': { titulo: 'Dashboard General - INVERSIONES JORAN', render: renderAdminDashboard, after: afterAdminDashboard },
     'a-clientes': { titulo: 'Directorio General de Clientes', render: renderAdminClientes },
@@ -1530,7 +1541,7 @@ function abrirModalRegistrarCliente() {
       <div class="form-grid-3">
         <div class="field"><label>Nombre del negocio</label><input class="form-control" id="nc-negnombre"></div>
         <div class="field"><label>Tipo de negocio</label>
-          <select class="form-control" id="nc-negtipo">${DB.categorias.map(cat => `<option>${cat}</option>`).join('')}</select>
+          <select class="form-control" id="nc-negtipo">${DB.categorias.map(cat => `<option>${escapeHTML(cat)}</option>`).join('')}</select>
         </div>
         <div class="field"><label>Ciudad</label><input class="form-control" id="nc-ciudad" placeholder="Ciudad"></div>
       </div>
@@ -1638,10 +1649,19 @@ function verClienteDetalle(id) {
           ${field('Estado', c.inversion.estado)} ${field('Rentabilidad', c.inversion.rentabilidad + '%')} ${field('Fecha', fechaLarga(c.inversion.fecha))}
         </div>
       </div>
-      <div class="form-box" style="margin-bottom:0;"><h4>Resultados</h4>
+      <div class="form-box">
+        <h4>Resultados (editable por Administrador)</h4>
         <div class="form-grid-4">
-          ${field('Ventas', formatCOP(c.resultados.ventas))} ${field('Gastos', formatCOP(c.resultados.gastos))} ${field('Utilidad', formatCOP(c.resultados.utilidad))} ${field('Deudas', formatCOP(c.resultados.deudas))}
+          <div class="field"><label>Ventas</label><input type="number" class="form-control" id="res-ventas-${c.id}" value="${c.resultados.ventas}"></div>
+          <div class="field"><label>Gastos</label><input type="number" class="form-control" id="res-gastos-${c.id}" value="${c.resultados.gastos}"></div>
+          <div class="field"><label>Utilidad</label><input type="number" class="form-control" id="res-utilidad-${c.id}" value="${c.resultados.utilidad}"></div>
+          <div class="field"><label>Inventario</label><input type="number" class="form-control" id="res-inventario-${c.id}" value="${c.resultados.inventario}"></div>
         </div>
+        <div class="form-grid-2">
+          <div class="field"><label>Deudas</label><input type="number" class="form-control" id="res-deudas-${c.id}" value="${c.resultados.deudas}"></div>
+          <div class="field"><label>Meta de ventas mensual</label><input type="number" class="form-control" id="res-metas-${c.id}" value="${c.resultados.metas}"></div>
+        </div>
+        <button class="btn-main" onclick="guardarResultadosCliente(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Resultados</button>
       </div>
     </div>
     <div class="tab-content" id="${gid}-historial" data-tabgroup="${gid}">
@@ -1654,6 +1674,19 @@ function verClienteDetalle(id) {
       <button class="btn-danger" onclick="eliminarCliente(${c.id})"><i class="fa-solid fa-trash"></i> Eliminar Cliente</button>
     </div>
   `);
+}
+
+function guardarResultadosCliente(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  c.resultados.ventas = Number(el(`res-ventas-${id}`).value) || 0;
+  c.resultados.gastos = Number(el(`res-gastos-${id}`).value) || 0;
+  c.resultados.utilidad = Number(el(`res-utilidad-${id}`).value) || 0;
+  c.resultados.inventario = Number(el(`res-inventario-${id}`).value) || 0;
+  c.resultados.deudas = Number(el(`res-deudas-${id}`).value) || 0;
+  c.resultados.metas = Number(el(`res-metas-${id}`).value) || 0;
+  guardarEstado();
+  mostrarNotificacion('Resultados del negocio actualizados');
 }
 
 function renderAdminTrabajadores() {
@@ -1792,9 +1825,13 @@ function renderAdminSeguimientos() {
 
 function tablaSeguimientosAdmin(list) {
   return `<table>
-    <thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Estado</th><th>Evidencias</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Estado</th><th>Observaciones</th><th>Evidencias</th><th></th></tr></thead>
     <tbody>
-      ${list.length ? list.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td><td>${(s.evidencias?.fotos || []).length + (s.evidencias?.documentos || []).length + (s.evidencias?.facturas || []).length} archivos</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`).join('') : `<tr><td colspan="9" class="empty-state">No hay seguimientos con ese estado.</td></tr>`}
+      ${list.length ? list.map(s => {
+        const obs = (s.evidencias && s.evidencias.observaciones) ? s.evidencias.observaciones : '';
+        const obsCorta = obs.length > 40 ? obs.slice(0, 38) + '…' : obs;
+        return `<tr><td>${fechaLarga(s.fecha)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td><td title="${escapeHTML(obs)}">${obsCorta ? escapeHTML(obsCorta) : '-'}</td><td>${(s.evidencias?.fotos || []).length + (s.evidencias?.documentos || []).length + (s.evidencias?.facturas || []).length} archivos</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`;
+      }).join('') : `<tr><td colspan="10" class="empty-state">No hay seguimientos con ese estado.</td></tr>`}
     </tbody>
   </table>`;
 }
@@ -1809,6 +1846,7 @@ function renderAdminReportes() {
   if (!DB.clientes.length) {
     return `<div class="card-table"><div class="empty-state">Aún no hay datos suficientes para generar reportes. Registra clientes y seguimientos primero.</div></div>`;
   }
+  const enRiesgo = DB.clientes.filter(c => c.estado === 'riesgo');
   return `
   <div class="card-table">
     <div class="card-table-header"><h3>Ventas por Negocio</h3></div>
@@ -1838,6 +1876,18 @@ function renderAdminReportes() {
         <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct >= 80 ? 'var(--success-green)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-red)'};width:${pct}%;"></div></div>
       </div>`;
     }).join('')}
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Negocios en Riesgo</h3><span class="subtitle">Negocios cuyo último seguimiento quedó marcado en 🔴 Riesgo</span></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Negocio</th><th>Cliente</th><th>Ciudad</th><th>Utilidad</th><th>Deudas</th><th>Último Seguimiento</th></tr></thead>
+      <tbody>
+        ${enRiesgo.length ? enRiesgo.map(c => {
+          const u = ultimoSeguimiento(c.id);
+          return `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${formatCOP(c.resultados.utilidad)}</td><td>${formatCOP(c.resultados.deudas)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td></tr>`;
+        }).join('') : `<tr><td colspan="6" class="empty-state">No hay negocios en riesgo actualmente.</td></tr>`}
+      </tbody>
+    </table></div>
   </div>`;
 }
 
@@ -1878,7 +1928,70 @@ function afterAdminReportes() {
   }
 }
 
+/* ---------------- CONFIGURACIÓN ---------------- */
+const CFG_MODULOS = [
+  { grupo: 'client', id: 'c-inicio', label: 'Inicio' },
+  { grupo: 'client', id: 'c-negocio', label: 'Mi Negocio' },
+  { grupo: 'client', id: 'c-inversion', label: 'Mi Inversión' },
+  { grupo: 'client', id: 'c-finanzas', label: 'Mis Finanzas' },
+  { grupo: 'client', id: 'c-metas', label: 'Mis Metas' },
+  { grupo: 'client', id: 'c-seguimientos', label: 'Seguimientos' },
+  { grupo: 'client', id: 'c-perfil', label: 'Mi Perfil' },
+  { grupo: 'worker', id: 'w-inicio', label: 'Nuevo Seguimiento' },
+  { grupo: 'worker', id: 'w-negocios', label: 'Mis Negocios' },
+  { grupo: 'worker', id: 'w-seguimientos', label: 'Seguimientos Realizados' },
+  { grupo: 'worker', id: 'w-pendientes', label: 'Seguimientos Pendientes' },
+  { grupo: 'worker', id: 'w-perfil', label: 'Mi Perfil' },
+  { grupo: 'admin', id: 'a-dashboard', label: 'Dashboard' },
+  { grupo: 'admin', id: 'a-clientes', label: 'Clientes' },
+  { grupo: 'admin', id: 'a-trabajadores', label: 'Trabajadores' },
+  { grupo: 'admin', id: 'a-inversiones', label: 'Inversiones' },
+  { grupo: 'admin', id: 'a-seguimientos', label: 'Seguimientos' },
+  { grupo: 'admin', id: 'a-reportes', label: 'Reportes' },
+  { grupo: 'admin', id: 'a-configuracion', label: 'Configuración' }
+];
+
+/* Garantiza que DB.permisos tenga entrada para cada rol/módulo (por defecto
+   habilitado), incluso si se agregan módulos nuevos más adelante o si la
+   base de datos venía de una versión anterior sin esta estructura. */
+function asegurarPermisosDefault() {
+  if (!DB.permisos) DB.permisos = {};
+  ['client', 'worker', 'admin'].forEach(rol => {
+    if (!DB.permisos[rol]) DB.permisos[rol] = {};
+    CFG_MODULOS.filter(m => m.grupo === rol).forEach(m => {
+      if (DB.permisos[rol][m.id] === undefined) DB.permisos[rol][m.id] = true;
+    });
+  });
+}
+
+/* El módulo de Configuración y el de Dashboard nunca se pueden ocultar
+   para el admin, para evitar que quede fuera de su propio panel. */
+function itemsMenuFiltrados(rol, items) {
+  asegurarPermisosDefault();
+  return items.filter(it => it.id === 'a-configuracion' || it.id === 'a-dashboard' || DB.permisos[rol][it.id] !== false);
+}
+
 function renderAdminConfiguracion() {
+  asegurarPermisosDefault();
+  return `
+  <div class="tabs">
+    <button class="tab-btn active" onclick="switchTab('cfg','cfg-parametros', this)"><i class="fa-solid fa-sliders"></i> Parámetros</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-usuarios', this)"><i class="fa-solid fa-users-gear"></i> Usuarios</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-permisos', this)"><i class="fa-solid fa-lock"></i> Roles y Permisos</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-metas', this)"><i class="fa-solid fa-bullseye"></i> Metas</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-categorias', this)"><i class="fa-solid fa-tags"></i> Categorías</button>
+  </div>
+
+  <div class="tab-content active" id="cfg-parametros" data-tabgroup="cfg">${renderCfgParametros()}</div>
+  <div class="tab-content" id="cfg-usuarios" data-tabgroup="cfg">${renderCfgUsuarios()}</div>
+  <div class="tab-content" id="cfg-permisos" data-tabgroup="cfg">${renderCfgPermisos()}</div>
+  <div class="tab-content" id="cfg-metas" data-tabgroup="cfg">${renderCfgMetas()}</div>
+  <div class="tab-content" id="cfg-categorias" data-tabgroup="cfg">${renderCfgCategorias()}</div>
+  `;
+}
+
+/* ---- Parámetros (ya existía, se mantiene igual) ---- */
+function renderCfgParametros() {
   const p = DB.parametros;
   return `
   <div class="card-table">
@@ -1900,6 +2013,193 @@ function guardarConfiguracionAdmin() {
   DB.parametros.metaCumplimientoMinimo = Number(el('cfg-cumplimiento').value) || 80;
   guardarEstado();
   mostrarNotificacion('Configuración guardada correctamente');
+}
+
+/* ---- Usuarios ---- */
+function nombreRol(rol) { return rol === 'client' ? 'Cliente' : rol === 'worker' ? 'Trabajador' : 'Administrador'; }
+function renderCfgUsuarios() {
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Usuarios de la Plataforma</h3>
+      <button class="btn-main" onclick="abrirModalRegistrarUsuario()"><i class="fa-solid fa-user-plus"></i> Registrar Usuario</button>
+    </div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Directorio de personas con acceso a la plataforma. El acceso real se hace eligiendo Rol + Negocio/Perfil en el login.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Nombre</th><th>Rol</th><th>Entidad Asociada</th><th>Estado</th><th></th></tr></thead>
+      <tbody>
+        ${DB.usuarios.length ? DB.usuarios.map(u => `<tr><td><b>${escapeHTML(u.nombre)}</b></td><td>${nombreRol(u.rol)}</td><td>${escapeHTML(u.entidadNombre || '-')}</td><td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td><td style="display:flex;gap:6px;"><button class="btn-secondary" onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button><button class="btn-danger" onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="5" class="empty-state">Aún no hay usuarios registrados.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function abrirModalRegistrarUsuario() {
+  openModal('Registrar Nuevo Usuario', `
+    <div class="form-grid-2">
+      <div class="field"><label>Nombre</label><input class="form-control" id="nu-nombre"></div>
+      <div class="field"><label>Rol</label>
+        <select class="form-control" id="nu-rol" onchange="handleRolUsuarioChange()">
+          <option value="client">Cliente</option>
+          <option value="worker">Trabajador</option>
+          <option value="admin">Administrador</option>
+        </select>
+      </div>
+    </div>
+    <div class="field" style="margin:14px 0;" id="nu-grupo-entidad">
+      <label>Negocio asociado</label>
+      <select class="form-control" id="nu-entidad">${DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') || '<option value="">No hay clientes registrados</option>'}</select>
+    </div>
+    <button class="btn-main" onclick="guardarNuevoUsuario()"><i class="fa-solid fa-floppy-disk"></i> Registrar Usuario</button>
+  `);
+}
+
+function handleRolUsuarioChange() {
+  const rol = el('nu-rol').value;
+  const grupo = el('nu-grupo-entidad');
+  const sel = el('nu-entidad');
+  if (rol === 'client') {
+    grupo.style.display = 'block';
+    sel.innerHTML = DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') || '<option value="">No hay clientes registrados</option>';
+  } else if (rol === 'worker') {
+    grupo.style.display = 'block';
+    sel.innerHTML = DB.trabajadores.map(t => `<option value="${t.id}">${escapeHTML(t.nombre)}</option>`).join('') || '<option value="">No hay trabajadores registrados</option>';
+  } else {
+    grupo.style.display = 'none';
+  }
+}
+
+function guardarNuevoUsuario() {
+  const rol = el('nu-rol').value;
+  const nombre = el('nu-nombre').value.trim();
+  if (!nombre) { mostrarNotificacion('Ingrese el nombre del usuario'); return; }
+  let entidadNombre = '-';
+  if (rol === 'client') { const c = getCliente(Number(el('nu-entidad').value)); entidadNombre = c ? c.negocio.nombre : '-'; }
+  if (rol === 'worker') { const t = getTrabajador(Number(el('nu-entidad').value)); entidadNombre = t ? t.nombre : '-'; }
+  DB.usuarios.push({ id: DB.nextId.usuario++, nombre, rol, entidadNombre, activo: true });
+  closeModal();
+  mostrarNotificacion('Usuario registrado correctamente');
+  navegar('a-configuracion');
+  setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[1]; if (btn) btn.click(); }, 30);
+}
+
+function toggleUsuarioActivo(id) {
+  const u = DB.usuarios.find(x => x.id === id);
+  if (!u) return;
+  u.activo = !u.activo;
+  guardarEstado();
+  navegar('a-configuracion');
+  setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[1]; if (btn) btn.click(); }, 30);
+}
+
+function eliminarUsuario(id) {
+  confirmarAccion('¿Eliminar este usuario del directorio?', () => {
+    DB.usuarios = DB.usuarios.filter(u => u.id !== id);
+    guardarEstado();
+    mostrarNotificacion('Usuario eliminado');
+    navegar('a-configuracion');
+    setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[1]; if (btn) btn.click(); }, 30);
+  });
+}
+
+/* ---- Roles y Permisos ---- */
+function renderCfgPermisos() {
+  const grupos = [
+    { rol: 'client', titulo: 'Cliente' },
+    { rol: 'worker', titulo: 'Trabajador' },
+    { rol: 'admin', titulo: 'Administrador' }
+  ];
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Roles y Permisos</h3></div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">Define qué módulos del menú puede ver cada rol. Dashboard y Configuración del Administrador no se pueden desactivar.</p>
+    ${grupos.map(g => `
+      <div class="form-box">
+        <h4>${g.titulo}</h4>
+        <div class="chip-list">
+          ${CFG_MODULOS.filter(m => m.grupo === g.rol).map(m => {
+            const bloqueado = g.rol === 'admin' && (m.id === 'a-dashboard' || m.id === 'a-configuracion');
+            const checked = DB.permisos[g.rol][m.id] !== false;
+            return `<label class="chip" style="cursor:${bloqueado ? 'not-allowed' : 'pointer'};display:inline-flex;align-items:center;gap:6px;opacity:${bloqueado ? '.6' : '1'};">
+              <input type="checkbox" ${checked ? 'checked' : ''} ${bloqueado ? 'disabled' : ''} onchange="DB.permisos['${g.rol}']['${m.id}']=this.checked;">
+              ${escapeHTML(m.label)}
+            </label>`;
+          }).join('')}
+        </div>
+      </div>`).join('')}
+    <button class="btn-main" onclick="guardarPermisos()"><i class="fa-solid fa-floppy-disk"></i> Guardar Permisos</button>
+  </div>`;
+}
+
+function guardarPermisos() {
+  guardarEstado();
+  mostrarNotificacion('Permisos actualizados. Se aplicarán la próxima vez que cada rol inicie sesión.');
+}
+
+/* ---- Metas ---- */
+function renderCfgMetas() {
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Metas de Ventas por Negocio</h3></div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">Define la meta de ventas mensual de cada cliente. Se refleja en "Mis Metas" del cliente y en Reportes.</p>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Negocio</th><th>Cliente</th><th>Ventas Actuales</th><th>Meta Mensual</th><th>Cumplimiento</th><th></th></tr></thead>
+      <tbody>
+        ${DB.clientes.length ? DB.clientes.map(c => {
+          const pct = c.resultados.metas ? Math.min(999, (c.resultados.ventas / c.resultados.metas) * 100) : 0;
+          return `<tr>
+            <td><b>${escapeHTML(c.negocio.nombre)}</b></td>
+            <td>${escapeHTML(c.nombre)}</td>
+            <td>${formatCOP(c.resultados.ventas)}</td>
+            <td><input type="number" class="form-control" style="max-width:150px;" id="meta-${c.id}" value="${c.resultados.metas}"></td>
+            <td>${pct.toFixed(1)}%</td>
+            <td><button class="btn-secondary" onclick="guardarMetaCliente(${c.id})">Guardar</button></td>
+          </tr>`;
+        }).join('') : `<tr><td colspan="6" class="empty-state">Aún no hay clientes registrados.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+function guardarMetaCliente(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  c.resultados.metas = Number(el(`meta-${id}`).value) || 0;
+  guardarEstado();
+  mostrarNotificacion(`Meta de ${c.negocio.nombre} actualizada`);
+}
+
+/* ---- Categorías ---- */
+function renderCfgCategorias() {
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Categorías de Negocio</h3></div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Estas categorías aparecen al registrar un nuevo cliente, en "Tipo de negocio".</p>
+    <div class="chip-list" style="margin-bottom:16px;">
+      ${DB.categorias.map((cat, i) => `<span class="chip" style="display:inline-flex;align-items:center;gap:8px;">${escapeHTML(cat)}<i class="fa-solid fa-xmark" style="cursor:pointer;color:var(--danger-red);" onclick="eliminarCategoria(${i})"></i></span>`).join('') || '<span style="font-size:.8rem;color:var(--text-muted);">Sin categorías registradas.</span>'}
+    </div>
+    <div style="display:flex;gap:10px;max-width:420px;">
+      <input class="form-control" id="nueva-categoria" placeholder="Nueva categoría, ej: Veterinaria">
+      <button class="btn-main" onclick="agregarCategoria()"><i class="fa-solid fa-plus"></i> Agregar</button>
+    </div>
+  </div>`;
+}
+
+function agregarCategoria() {
+  const val = el('nueva-categoria').value.trim();
+  if (!val) { mostrarNotificacion('Escribe el nombre de la categoría'); return; }
+  if (DB.categorias.some(c => c.toLowerCase() === val.toLowerCase())) { mostrarNotificacion('Esa categoría ya existe'); return; }
+  DB.categorias.push(val);
+  guardarEstado();
+  navegar('a-configuracion');
+  setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[4]; if (btn) btn.click(); }, 30);
+}
+
+function eliminarCategoria(idx) {
+  DB.categorias.splice(idx, 1);
+  guardarEstado();
+  navegar('a-configuracion');
+  setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[4]; if (btn) btn.click(); }, 30);
 }
 </script>
 </body>
