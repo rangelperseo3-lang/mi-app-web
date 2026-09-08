@@ -957,7 +957,7 @@ function renderClienteInversion(c) {
   <div class="card-table">
     <div class="card-table-header">
       <h3>Información de Inversión JORAN</h3>
-      <button class="btn-main" onclick="descargarContratoInversion(${c.id})"><i class="fa-solid fa-file-contract"></i> Ver contrato</button>
+      <button class="btn-main" onclick="abrirContratoInversion(${c.id})"><i class="fa-solid fa-file-contract"></i> Ver contrato</button>
     </div>
     <div class="form-grid-3">
       ${field('Capital solicitado', formatCOP(i.solicitado))}
@@ -977,121 +977,39 @@ function renderClienteInversion(c) {
   </div>`;
 }
 
-function descargarContratoInversion(clienteId) {
+function abrirContratoInversion(clienteId) {
   const c = getCliente(clienteId);
   if (!c) { mostrarNotificacion('No se encontró información del cliente', true); return; }
-  const i = c.inversion;
-  const contenido =
-`RESUMEN DE CONTRATO DE INVERSIÓN
-${DB.parametros.nombreEmpresa}
-=====================================
-
-Cliente: ${c.nombre}
-Documento: ${c.documento || '-'}
-Negocio: ${c.negocio.nombre}
-
-Capital solicitado: ${formatCOP(i.solicitado)}
-Capital aprobado: ${formatCOP(i.aprobado)}
-Capital recibido: ${formatCOP(i.recibido)}
-
-Fecha de inversión: ${fechaLarga(i.fecha)}
-Tipo de inversión: ${i.tipo || '-'}
-Participación de JORAN: ${i.participacion}%
-Estado de la inversión: ${i.estado || '-'}
-Rentabilidad acumulada: ${i.rentabilidad}%
-
-Destino de la inversión:
-${i.destino || '-'}
-
-=====================================
-Este documento es un resumen informativo generado por la plataforma
-y no reemplaza el contrato legal firmado entre las partes.
-Generado el: ${fechaLarga(new Date().toISOString().slice(0, 10))}
-`;
-  const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Contrato_${c.negocio.nombre.replace(/\s+/g, '_')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  mostrarNotificacion('Contrato descargado correctamente');
-}
-
-function renderClienteFinanzas(c) {
-  const r = c.resultados;
-  const hist = seguimientosDeCliente(c.id);
-  return `
-  <div class="card-table">
-    <div class="card-table-header"><h3>Resultados Actuales del Negocio</h3></div>
-    <div class="metrics-row">
-      ${metricCard('fa-chart-line', 'var(--success-bg)', 'var(--success-green)', 'Ventas', formatCOP(r.ventas))}
-      ${metricCard('fa-receipt', 'var(--danger-bg)', 'var(--danger-red)', 'Gastos', formatCOP(r.gastos))}
-      ${metricCard('fa-wallet', 'var(--success-bg)', 'var(--success-green)', 'Utilidad', formatCOP(r.utilidad))}
-      ${metricCard('fa-boxes-stacked', '#eef1f5', '#475569', 'Inventario', formatCOP(r.inventario))}
-      ${metricCard('fa-money-bill-transfer', 'var(--warning-bg)', 'var(--warning-amber)', 'Deudas', formatCOP(r.deudas))}
-    </div>
-  </div>
-  <div class="card-table">
-    <div class="card-table-header"><h3>Historial Financiero (por seguimiento)</h3></div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Semana</th><th>Fecha</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Estado</th></tr></thead>
-      <tbody>
-        ${hist.length ? hist.map(s => `<tr><td>${escapeHTML(s.semana)}</td><td>${fechaLarga(s.fecha)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">Aún no hay seguimientos registrados.</td></tr>`}
-      </tbody>
-    </table></div>
-  </div>`;
-}
-
-function renderClienteMetas(c) {
-  const r = c.resultados;
-  const pct = r.metas ? Math.min(100, (r.ventas / r.metas) * 100) : 0;
-  const hist = seguimientosDeCliente(c.id);
-  return `
-  <div class="card-table">
-    <div class="card-table-header"><h3>Cumplimiento de Meta de Ventas</h3></div>
-    <p style="margin-bottom:10px;font-size:.9rem;">Meta de ventas mensual: <b>${formatCOP(r.metas)}</b> (Progreso: ${pct.toFixed(1)}%)</p>
-    <div class="progress-bar-track"><div class="progress-bar-fill" style="background:${pct >= 80 ? 'var(--success-green)' : pct >= 50 ? 'var(--warning-amber)' : 'var(--danger-red)'};width:${pct}%;"></div></div>
-  </div>
-  <div class="card-table">
-    <div class="card-table-header"><h3>Cumplimiento por Seguimiento Semanal</h3></div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Semana</th><th>Fecha</th><th>Cumplimiento de metas</th><th>Uso de la inversión</th></tr></thead>
-      <tbody>
-        ${hist.length ? hist.map(s => `<tr><td>${escapeHTML(s.semana)}</td><td>${fechaLarga(s.fecha)}</td><td>${escapeHTML(s.cumplimientoMetas)}</td><td>${escapeHTML(s.usoInversion)}</td></tr>`).join('') : `<tr><td colspan="4" class="empty-state">Sin registros aún.</td></tr>`}
-      </tbody>
-    </table></div>
-  </div>`;
-}
-
-function renderClienteSeguimientos(c) {
-  const hist = seguimientosDeCliente(c.id);
-  return `
-  <div class="card-table">
-    <div class="card-table-header"><h3>Historial de Seguimientos Realizados por el Trabajador</h3></div>
-    <div class="table-scroll"><table>
-      <thead><tr><th>Semana</th><th>Fecha</th><th>Realizado por</th><th>Estado</th><th>Ventas</th><th>Utilidad</th><th>Acción</th></tr></thead>
-      <tbody>
-        ${hist.length ? hist.map(s => `<tr><td>${escapeHTML(s.semana)}</td><td>${fechaLarga(s.fecha)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${badgeEstado(s.estado)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.utilidad)}</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`).join('') : `<tr><td colspan="7" class="empty-state">Aún no tienes seguimientos registrados.</td></tr>`}
-      </tbody>
-    </table></div>
-  </div>`;
-}
-
-function renderClientePerfil(c) {
-  return `
-  <div class="card-table">
-    <div class="card-table-header"><h3>Editar Mi Perfil</h3></div>
-    <div class="form-grid-3">
-      <div class="field"><label>Nombre completo</label><input class="form-control" value="${escapeHTML(c.nombre)}" id="perfil-nombre" disabled></div>
-      <div class="field"><label>Teléfono</label><input class="form-control" value="${escapeHTML(c.telefono)}" id="perfil-telefono"></div>
-      <div class="field"><label>Correo</label><input class="form-control" type="email" value="${escapeHTML(c.correo)}" id="perfil-correo"></div>
-    </div>
-    <div class="field" style="margin-bottom:16px;"><label>Dirección</label><input class="form-control" value="${escapeHTML(c.direccion)}" id="perfil-direccion"></div>
-    <button class="btn-main" onclick="guardarPerfilCliente(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
-  </div>`;
+  const i = c.inversion || {};
+  const nombreEmpresa = DB.parametros.nombreEmpresa || 'INVERSIONES JORAN';
+  const esc = (v) => escapeHTML(v ?? '-');
+  const html = `
+    <div class="documento">
+      <div class="cabecera"><div><div class="marca">${esc(nombreEmpresa)}</div><div class="sub">Documento de inversión</div></div><div class="estado">${esc(i.estado || 'Pendiente')}</div></div>
+      <hr><h1>Resumen de contrato de inversión</h1><p class="intro">Documento informativo generado por la plataforma JORAN.</p>
+      <h2>Datos del cliente</h2><div class="grid">
+        <div><b>Cliente</b><span>${esc(c.nombre)}</span></div><div><b>Documento</b><span>${esc(c.documento)}</span></div>
+        <div><b>Negocio</b><span>${esc(c.negocio?.nombre)}</span></div><div><b>Ciudad</b><span>${esc(c.negocio?.ciudad)}</span></div>
+      </div>
+      <h2>Condiciones de inversión</h2><div class="grid">
+        <div><b>Capital solicitado</b><span>${esc(formatCOP(i.solicitado || 0))}</span></div><div><b>Capital aprobado</b><span>${esc(formatCOP(i.aprobado || 0))}</span></div>
+        <div><b>Capital recibido</b><span>${esc(formatCOP(i.recibido || 0))}</span></div><div><b>Participación de JORAN</b><span>${esc(i.participacion)}%</span></div>
+        <div><b>Rentabilidad acumulada</b><span>${esc(i.rentabilidad)}%</span></div><div><b>Fecha de inversión</b><span>${esc(fechaLarga(i.fecha))}</span></div>
+        <div><b>Tipo de inversión</b><span>${esc(i.tipo)}</span></div><div><b>Destino</b><span>${esc(i.destino)}</span></div>
+      </div>
+      <h2>Estado</h2><p>La inversión se encuentra actualmente en estado <b>${esc(i.estado || 'Pendiente')}</b>.</p>
+      <div class="nota">Este documento es un resumen informativo generado por la plataforma y no reemplaza el contrato legal firmado entre las partes.</div>
+      <p class="fecha">Generado el ${esc(fechaLarga(new Date().toISOString().slice(0,10)))}</p>
+      <div class="acciones"><button onclick="window.print()">Imprimir / Guardar PDF</button><button class="sec" onclick="window.close()">Cerrar pestaña</button></div>
+    </div>`;
+  const w = window.open('', '_blank');
+  if (!w) { mostrarNotificacion('El navegador bloqueó la nueva pestaña. Permite ventanas emergentes para JORAN.', true); return; }
+  w.document.open();
+  w.document.write(`<!doctype html><html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Contrato - ${esc(c.negocio?.nombre)}</title><style>
+  *{box-sizing:border-box}body{margin:0;background:#f1f5f9;color:#172033;font-family:Arial,Helvetica,sans-serif}.documento{max-width:900px;margin:35px auto;background:#fff;padding:48px 56px;min-height:90vh;box-shadow:0 10px 30px rgba(15,23,42,.12)}.cabecera{display:flex;justify-content:space-between;align-items:flex-start;gap:20px}.marca{font-size:24px;font-weight:800}.sub{color:#64748b;margin-top:4px}.estado{padding:8px 14px;border-radius:999px;background:#e8f5ee;color:#18794e;font-weight:700}hr{border:0;border-top:1px solid #e2e8f0;margin:25px 0}h1{font-size:28px;margin:0 0 8px}h2{font-size:17px;margin:28px 0 14px;color:#0f2747}.intro{color:#64748b}.grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}.grid>div{border:1px solid #e2e8f0;border-radius:10px;padding:13px}.grid b{display:block;font-size:12px;color:#64748b;margin-bottom:5px}.grid span{font-weight:600}.nota{margin-top:30px;padding:14px 16px;border-left:4px solid #94a3b8;background:#f8fafc;color:#475569;font-size:13px;line-height:1.5}.fecha{color:#64748b;font-size:13px}.acciones{display:flex;gap:10px;margin-top:30px}.acciones button{border:0;border-radius:8px;padding:11px 16px;background:#12395d;color:#fff;font-weight:700;cursor:pointer}.acciones .sec{background:#e2e8f0;color:#334155}@media(max-width:650px){.documento{margin:0;padding:28px 20px;min-height:100vh}.grid{grid-template-columns:1fr}.cabecera{flex-direction:column}.acciones{flex-direction:column}}@media print{body{background:#fff}.documento{margin:0;box-shadow:none;max-width:none;padding:25px}.acciones{display:none}}
+  </style></head><body>${html}</body></html>`);
+  w.document.close();
+  w.focus();
 }
 function guardarPerfilCliente(id) {
   const c = getCliente(id);
@@ -2772,13 +2690,21 @@ function nombreEstadoSolicitud(s){const m={Pendiente:'badge-amber',EnRevision:'b
 function renderEstadoSolicitudesCliente(id){const l=DB.solicitudesInversion.filter(s=>s.clienteId===id).sort((a,b)=>b.id-a.id);return `<div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Monto</th><th>Estado</th><th>Respuesta</th></tr></thead><tbody>${l.length?l.map(s=>`<tr><td>${fechaLarga(s.fecha)}</td><td>${formatCOP(s.montoSolicitado)}</td><td>${nombreEstadoSolicitud(s.estado)}</td><td>${escapeHTML(s.comentario||'-')}</td></tr>`).join(''):'<tr><td colspan="4" class="empty-state">Sin solicitudes.</td></tr>'}</tbody></table></div>`;}
 function abrirModalSolicitarInversionCliente(id){const pendiente=DB.solicitudesInversion.some(s=>s.clienteId===id&&['Pendiente','EnRevision'].includes(s.estado));openModal('Solicitar inversión',pendiente?renderEstadoSolicitudesCliente(id):`<div class="form-grid-2"><div class="field"><label>Monto *</label><input type="number" min="1" class="form-control" id="si-monto"></div><div class="field"><label>Tipo</label><input class="form-control" id="si-tipo" value="Capital de expansión"></div></div><div class="field"><label>Destino *</label><textarea class="form-control" id="si-destino" rows="3"></textarea></div><button class="btn-main" onclick="enviarSolicitudInversion(${id})">Enviar solicitud</button>`);}
 function enviarSolicitudInversion(id){const c=getCliente(id),m=Number(el('si-monto').value)||0,d=el('si-destino').value.trim(),t=el('si-tipo').value.trim()||'Capital de expansión';if(!c||m<=0||!d){mostrarNotificacion('Indica monto y destino',true);return;}DB.solicitudesInversion.unshift({id:DB.nextId.solicitudInversion++,clienteId:id,clienteNombre:c.nombre,negocioNombre:c.negocio.nombre,montoSolicitado:m,destino:d,tipo:t,estado:'Pendiente',comentario:'',fecha:new Date().toISOString().slice(0,10)});c.inversion.solicitado=m;c.inversion.destino=d;c.inversion.tipo=t;c.inversion.estado='Pendiente';crearNotificacion('admin',null,'Nueva solicitud de inversión',`${c.negocio.nombre} solicitó ${formatCOP(m)}.`,'solicitud');guardarEstado();closeModal();mostrarNotificacion('Solicitud enviada');navegar('c-inversion');}
-function renderClienteInversion(c){asegurarDatosNuevos();return `<div class="card-table"><div class="card-table-header"><h3>Mi Inversión</h3><div><button class="btn-main" onclick="abrirModalSolicitarInversionCliente(${c.id})">${c.inversion.aprobado?'Solicitar otra inversión':'Solicitar inversión'}</button> <button class="btn-secondary" onclick="descargarContratoInversion(${c.id})">Ver contrato/resumen</button></div></div><div class="form-grid-4">${field('Solicitado',formatCOP(c.inversion.solicitado))}${field('Aprobado',formatCOP(c.inversion.aprobado))}${field('Recibido',formatCOP(c.inversion.recibido))}${field('Participación JORAN',c.inversion.participacion+'%')}</div><div class="form-grid-4">${field('Estado',c.inversion.estado)}${field('Rentabilidad',c.inversion.rentabilidad+'%')}${field('Fecha',fechaLarga(c.inversion.fecha))}${field('Tipo',c.inversion.tipo)}</div>${field('Destino',c.inversion.destino)}</div><div class="card-table"><div class="card-table-header"><h3>Estado de solicitudes</h3></div>${renderEstadoSolicitudesCliente(c.id)}</div>${renderNotificacionesSesion()}`;}
+function renderClienteInversion(c){asegurarDatosNuevos();return `<div class="card-table"><div class="card-table-header"><h3>Mi Inversión</h3><div><button class="btn-main" onclick="abrirModalSolicitarInversionCliente(${c.id})">${c.inversion.aprobado?'Solicitar otra inversión':'Solicitar inversión'}</button> <button class="btn-secondary" onclick="abrirContratoInversion(${c.id})">Ver contrato/resumen</button></div></div><div class="form-grid-4">${field('Solicitado',formatCOP(c.inversion.solicitado))}${field('Aprobado',formatCOP(c.inversion.aprobado))}${field('Recibido',formatCOP(c.inversion.recibido))}${field('Participación JORAN',c.inversion.participacion+'%')}</div><div class="form-grid-4">${field('Estado',c.inversion.estado)}${field('Rentabilidad',c.inversion.rentabilidad+'%')}${field('Fecha',fechaLarga(c.inversion.fecha))}${field('Tipo',c.inversion.tipo)}</div>${field('Destino',c.inversion.destino)}</div><div class="card-table"><div class="card-table-header"><h3>Estado de solicitudes</h3></div>${renderEstadoSolicitudesCliente(c.id)}</div>${renderNotificacionesSesion()}`;}
 function renderClienteFinanzas(c){const r=c.resultados,h=seguimientosDeCliente(c.id),p=DB.pagos.filter(x=>x.clienteId===c.id);return `<div class="card-table"><div class="card-table-header"><h3>Mis Finanzas</h3></div><div class="metrics-row">${metricCard('fa-chart-line','var(--success-bg)','var(--success-green)','Ventas',formatCOP(r.ventas))}${metricCard('fa-receipt','var(--danger-bg)','var(--danger-red)','Gastos',formatCOP(r.gastos))}${metricCard('fa-wallet','var(--success-bg)','var(--success-green)','Utilidad',formatCOP(r.utilidad))}${metricCard('fa-money-bill-transfer','var(--warning-bg)','var(--warning-amber)','Pagos',formatCOP(p.reduce((a,x)=>a+x.monto,0)))}</div></div><div class="card-table"><div class="card-table-header"><h3>Historial financiero</h3></div><div class="table-scroll"><table><thead><tr><th>Semana</th><th>Fecha</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th></tr></thead><tbody>${h.length?h.map(x=>`<tr><td>${escapeHTML(x.semana)}</td><td>${fechaLarga(x.fecha)}</td><td>${formatCOP(x.ventas)}</td><td>${formatCOP(x.gastos)}</td><td>${formatCOP(x.utilidad)}</td></tr>`).join(''):'<tr><td colspan="5" class="empty-state">Sin historial.</td></tr>'}</tbody></table></div></div><div class="card-table"><div class="card-table-header"><h3>Historial de pagos</h3></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Concepto</th><th>Monto</th><th>Estado</th></tr></thead><tbody>${p.length?p.map(x=>`<tr><td>${fechaLarga(x.fecha)}</td><td>${escapeHTML(x.concepto)}</td><td>${formatCOP(x.monto)}</td><td>${escapeHTML(x.estado)}</td></tr>`).join(''):'<tr><td colspan="4" class="empty-state">No hay pagos.</td></tr>'}</tbody></table></div></div>${renderNotificacionesSesion()}`;}
 function enlaceMapa(c){return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((c.negocio.direccion||'')+', '+(c.negocio.ciudad||''))}`;}
 function abrirModalGenerarAlerta(clienteId,trabajadorId){openModal('Generar alerta',`<div class="field"><label>Nivel</label><select class="form-control" id="ga-nivel"><option value="atencion">🟡 Atención</option><option value="riesgo">🟠 Riesgo</option><option value="critico">🔴 Crítico</option></select></div><div class="field"><label>Motivo *</label><textarea class="form-control" rows="3" id="ga-motivo"></textarea></div><button class="btn-main" onclick="confirmarAlertaTrabajador(${clienteId},${trabajadorId})">Generar alerta</button>`);}
 function confirmarAlertaTrabajador(c,t){const m=el('ga-motivo').value.trim(),n=el('ga-nivel').value;if(!m){mostrarNotificacion('Indica el motivo',true);return;}DB.alertas.unshift({id:DB.nextId.alerta++,clienteId:c,trabajadorId:t,nivel:n,motivo:m,fecha:new Date().toISOString().slice(0,10),estado:'Abierta'});const cli=getCliente(c);if(cli)cli.estado=n;crearNotificacion('admin',null,`Alerta ${estadoInfo(n).label}`,`${cli?cli.negocio.nombre:'Negocio'}: ${m}`,'alerta');registrarAuditoria('Alerta generada',m);guardarEstado();closeModal();mostrarNotificacion('Alerta enviada');}
 function adminCapitalStats(){asegurarDatosNuevos();const invertido=DB.clientes.reduce((a,c)=>a+(Number(c.inversion?.recibido)||0),0),recuperado=DB.pagos.filter(p=>p.tipo==='recuperacion').reduce((a,p)=>a+(Number(p.monto)||0),0),gan=DB.clientes.reduce((a,c)=>a+(Number(c.resultados?.utilidad)||0)*(Number(c.inversion?.participacion)||0)/100,0),disp=Math.max(0,(Number(DB.capital.total)||0)-invertido+recuperado);return{invertido,recuperado,gan,disp};}
-function renderAdminDashboard(){const st=adminStats(),c=adminCapitalStats(),pend=DB.pagos.filter(p=>p.estado==='Pendiente').reduce((a,p)=>a+p.monto,0);return `<div class="metrics-row">${metricCard('fa-coins','#e6ecf7','var(--navy)','Capital Total',formatCOP(DB.capital.total))}${metricCard('fa-wallet','var(--success-bg)','var(--success-green)','Capital Invertido',formatCOP(c.invertido))}${metricCard('fa-piggy-bank','var(--warning-bg)','var(--warning-amber)','Capital Disponible',formatCOP(c.disp))}${metricCard('fa-rotate-left','var(--success-bg)','var(--success-green)','Capital Recuperado',formatCOP(c.recuperado))}</div><div class="metrics-row">${metricCard('fa-chart-line','var(--success-bg)','var(--success-green)','Ganancias JORAN',formatCOP(c.gan))}${metricCard('fa-store','#e6ecf7','var(--navy)','Negocios',st.negociosActivos)}${metricCard('fa-triangle-exclamation','var(--risk-orange-bg)','var(--risk-orange)','En Riesgo',st.negociosRiesgo)}${metricCard('fa-clock','var(--danger-bg)','var(--danger-red)','Pagos Pendientes',formatCOP(pend))}</div><div class="card-table"><div class="card-table-header"><h3>Indicadores</h3></div><div class="form-grid-4">${field('Negocios activos',st.negociosActivos)}${field('Negocios terminados',DB.clientes.filter(x=>x.inversion?.estado==='Terminada').length)}${field('Seguimientos pendientes',st.seguimientosPendientes)}${field('Pérdidas',formatCOP(DB.clientes.reduce((a,x)=>a+Math.min(0,x.resultados?.utilidad||0),0)))}</div></div>${renderNotificacionesSesion()}`;}
+function renderAdminDashboard(){
+  const st=adminStats(), c=adminCapitalStats(), pend=DB.pagos.filter(p=>p.estado==='Pendiente').reduce((a,p)=>a+(Number(p.monto)||0),0);
+  return `<div class="metrics-row">${metricCard('fa-coins','#e6ecf7','var(--navy)','Capital Total',formatCOP(DB.capital.total))}${metricCard('fa-wallet','var(--success-bg)','var(--success-green)','Capital Invertido',formatCOP(c.invertido))}${metricCard('fa-piggy-bank','var(--warning-bg)','var(--warning-amber)','Capital Disponible',formatCOP(c.disp))}${metricCard('fa-rotate-left','var(--success-bg)','var(--success-green)','Capital Recuperado',formatCOP(c.recuperado))}</div>
+  <div class="metrics-row">${metricCard('fa-chart-line','var(--success-bg)','var(--success-green)','Ganancias JORAN',formatCOP(c.gan))}${metricCard('fa-store','#e6ecf7','var(--navy)','Negocios',st.negociosActivos)}${metricCard('fa-triangle-exclamation','var(--risk-orange-bg)','var(--risk-orange)','En Riesgo',st.negociosRiesgo)}${metricCard('fa-clock','var(--danger-bg)','var(--danger-red)','Pagos Pendientes',formatCOP(pend))}</div>
+  <div style="display:grid;grid-template-columns:minmax(230px,1fr) minmax(0,2fr);gap:20px;align-items:start;">
+    <div class="card-table"><div class="card-table-header"><h3>Estado de los negocios</h3></div><div style="max-width:250px;margin:8px auto 0;"><canvas id="chart-estado-negocios"></canvas></div><div style="text-align:center;margin-top:14px;font-size:.85rem;line-height:1.25;"><p>🟢 Normal: <b>${st.negociosNormal}</b></p><p>🟡 Atención: <b>${st.negociosAtencion}</b></p><p>🟠 Riesgo: <b>${st.negociosRiesgo}</b></p><p>🔴 Crítico: <b>${st.negociosCriticos}</b></p></div></div>
+    <div class="card-table"><div class="card-table-header"><h3>Indicadores</h3></div><div class="form-grid-4">${field('Negocios activos',st.negociosActivos)}${field('Negocios terminados',DB.clientes.filter(x=>x.inversion?.estado==='Terminada').length)}${field('Seguimientos pendientes',st.seguimientosPendientes)}${field('Pérdidas',formatCOP(DB.clientes.reduce((a,x)=>a+Math.min(0,Number(x.resultados?.utilidad)||0),0)))}</div><p style="margin-top:18px;color:var(--text-muted);font-size:.86rem;">Distribución de negocios por nivel de estado.</p></div>
+  </div>${renderNotificacionesSesion()}`;
+}
 function renderAdminSolicitudes(){const l=DB.solicitudesInversion.slice().sort((a,b)=>b.id-a.id);return `<div class="card-table"><div class="card-table-header"><h3>Solicitudes de inversión</h3></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Negocio</th><th>Monto</th><th>Destino</th><th>Estado</th><th></th></tr></thead><tbody>${l.length?l.map(s=>`<tr><td>${fechaLarga(s.fecha)}</td><td>${escapeHTML(s.clienteNombre)}</td><td>${escapeHTML(s.negocioNombre)}</td><td>${formatCOP(s.montoSolicitado)}</td><td>${escapeHTML(s.destino)}</td><td>${nombreEstadoSolicitud(s.estado)}</td><td>${['Pendiente','EnRevision'].includes(s.estado)?`<button class="btn-main" onclick="abrirModalResolverSolicitud(${s.id})">Revisar</button>`:'-'}</td></tr>`).join(''):'<tr><td colspan="7" class="empty-state">No hay solicitudes.</td></tr>'}</tbody></table></div></div>`;}
 function abrirModalResolverSolicitud(id){const s=DB.solicitudesInversion.find(x=>x.id===id);if(!s)return;openModal('Resolver solicitud',`<p><b>${escapeHTML(s.negocioNombre)}</b> — ${formatCOP(s.montoSolicitado)}</p><div class="field"><label>Decisión</label><select class="form-control" id="rs-estado"><option>Aprobada</option><option>Rechazada</option><option>EnRevision</option></select></div><div class="field"><label>Comentario</label><textarea class="form-control" id="rs-comentario" rows="3"></textarea></div><button class="btn-main" onclick="resolverSolicitud(${id})">Guardar</button>`);}
 function resolverSolicitud(id){const s=DB.solicitudesInversion.find(x=>x.id===id);if(!s)return;const est=el('rs-estado').value,com=el('rs-comentario').value.trim(),c=getCliente(s.clienteId);s.estado=est;s.comentario=com;s.fechaRespuesta=new Date().toISOString().slice(0,10);if(c){c.inversion.estado=est==='Aprobada'?'Aprobada':est==='Rechazada'?'Rechazada':'En revisión';if(est==='Aprobada'){c.inversion.aprobado=s.montoSolicitado;c.inversion.recibido=0;c.inversion.fecha=new Date().toISOString().slice(0,10);}}crearNotificacion('client',s.clienteId,'Actualización de solicitud',`Tu solicitud está ${est.toLowerCase()}. ${com}`,'solicitud');registrarAuditoria('Solicitud de inversión resuelta',`${s.negocioNombre} — ${est}`);guardarEstado();closeModal();navegar('a-solicitudes');}
