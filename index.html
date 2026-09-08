@@ -23,6 +23,8 @@
   --success-bg:#d9f2e6;
   --warning-amber:#b8860b;
   --warning-bg:#fbeecb;
+  --risk-orange:#c05621;
+  --risk-orange-bg:#fce3ce;
   --danger-red:#c0392b;
   --danger-bg:#fbe1de;
 }
@@ -111,6 +113,7 @@ tr:hover td{background:#fbfbfd;}
 .badge{padding:4px 10px;border-radius:20px;font-size:.72rem;font-weight:700;display:inline-flex;align-items:center;gap:4px;white-space:nowrap;}
 .badge-green{background:var(--success-bg);color:var(--success-green);}
 .badge-amber{background:var(--warning-bg);color:var(--warning-amber);}
+.badge-orange{background:var(--risk-orange-bg);color:var(--risk-orange);}
 .badge-red{background:var(--danger-bg);color:var(--danger-red);}
 
 .btn-main{background:var(--navy);color:var(--gold-light);border:none;padding:9px 16px;border-radius:7px;font-weight:700;cursor:pointer;font-size:.82rem;display:inline-flex;align-items:center;gap:6px;transition:.2s;}
@@ -230,6 +233,7 @@ tr:hover td{background:#fbfbfd;}
       </div>
       <button type="submit" class="btn-login" id="btn-login"><i class="fa-solid fa-lock"></i> Acceder a la Plataforma</button>
     </form>
+    <p class="login-hint"><a href="javascript:void(0)" onclick="verPoliticaDatosLogin()" style="color:var(--gold-light);text-decoration:underline;">Política de Tratamiento de Datos</a></p>
   </div>
 </section>
 
@@ -284,8 +288,14 @@ const DB = {
   seguimientos: [],
   usuarios: [],
   categorias: ['Tienda de barrio', 'Panadería', 'Barbería', 'Papelería', 'Restaurante', 'Ferretería', 'Otro'],
-  parametros: { moneda: 'COP', periodoSeguimiento: 'Semanal', metaCumplimientoMinimo: 80, nombreEmpresa: 'INVERSIONES JORAN S.A.S.' },
+  parametros: {
+    moneda: 'COP', periodoSeguimiento: 'Semanal', metaCumplimientoMinimo: 80, nombreEmpresa: 'INVERSIONES JORAN S.A.S.',
+    mesesMinimoFuncionamiento: 6, puntajeMinimoAprobacion: 70, montoMaximoInversion: 20000000,
+    reglamentoTexto: 'Toda inversión debe destinarse exclusivamente al fin declarado por el cliente. El incumplimiento de compromisos o el hallazgo de información inconsistente puede derivar en la suspensión del desembolso o la liquidación anticipada del contrato.',
+    politicaDatos: 'INVERSIONES JORAN S.A.S. recolecta datos personales y financieros de clientes únicamente para evaluar, aprobar y hacer seguimiento a sus inversiones. La información se almacena de forma segura, solo el personal autorizado según su rol puede consultarla o modificarla, y no se comparte con terceros sin autorización del titular, salvo requerimiento legal. Los titulares pueden solicitar la consulta, corrección o eliminación de sus datos a través de su asesor JORAN.'
+  },
   solicitudesEdicion: [],
+  auditoria: [],
   nextId: { cliente: 1, trabajador: 1, seguimiento: 1, usuario: 1, solicitud: 1 }
 };
 
@@ -474,11 +484,12 @@ function fechaLarga(f) {
 }
 function estadoInfo(estado) {
   const map = {
-    optimo: { label: 'Óptimo', cls: 'badge-green', dot: 'var(--success-green)', emoji: '🟢' },
-    atencion: { label: 'En Atención', cls: 'badge-amber', dot: 'var(--warning-amber)', emoji: '🟡' },
-    riesgo: { label: 'En Riesgo', cls: 'badge-red', dot: 'var(--danger-red)', emoji: '🔴' }
+    normal: { label: 'Normal', cls: 'badge-green', dot: 'var(--success-green)', emoji: '🟢', desc: 'Negocio funcionando correctamente.' },
+    atencion: { label: 'Atención', cls: 'badge-amber', dot: 'var(--warning-amber)', emoji: '🟡', desc: 'Ventas disminuyeron 10–20%.' },
+    riesgo: { label: 'Riesgo', cls: 'badge-orange', dot: 'var(--risk-orange)', emoji: '🟠', desc: 'Problemas de liquidez, inventario o pagos.' },
+    critico: { label: 'Crítico', cls: 'badge-red', dot: 'var(--danger-red)', emoji: '🔴', desc: 'Pérdidas, cierre, incumplimiento o información inconsistente.' }
   };
-  return map[estado] || map.optimo;
+  return map[estado] || map.normal;
 }
 function badgeEstado(estado) {
   const info = estadoInfo(estado);
@@ -501,6 +512,41 @@ function escapeHTML(str) {
     .replace(/'/g, '&#39;');
 }
 function el(id) { return document.getElementById(id); }
+
+/* ---------------- Auditoría (quién modificó qué) ----------------
+   Cada acción relevante (crear/eliminar/editar clientes, trabajadores,
+   usuarios, seguimientos, configuración, etc.) queda registrada con
+   fecha, hora, quién la hizo y con qué rol. Se conservan solo las
+   últimas 300 entradas para no inflar el tamaño del estado. */
+function registrarAuditoria(accion, detalle) {
+  if (!DB.auditoria) DB.auditoria = [];
+  const ahora = new Date();
+  DB.auditoria.unshift({
+    fecha: ahora.toISOString().slice(0, 10),
+    hora: ahora.toTimeString().slice(0, 5),
+    usuario: SESSION.usuario || 'Sistema',
+    rol: SESSION.rol || '-',
+    accion,
+    detalle: detalle || ''
+  });
+  if (DB.auditoria.length > 300) DB.auditoria.length = 300;
+}
+
+/* Rellena con valores por defecto la ficha del "proceso de inversión" de un
+   cliente que venía de una versión anterior sin esta estructura. */
+function asegurarProcesoCliente(c) {
+  if (!c.proceso) c.proceso = {};
+  if (!c.proceso.requisitos) c.proceso.requisitos = { antiguedad: false, documentacion: false, evidenciaVentas: false, estadosFinancieros: false, referencias: false, visitaTrabajador: false, evaluacionRiesgo: false };
+  if (!c.proceso.etapas) c.proceso.etapas = { contrato: false, desembolso: false, seguimientoSemanal: false, reporte: false, liquidacion: false, revisionMensual: false };
+  return c.proceso;
+}
+function mesesDesde(fechaStr) {
+  if (!fechaStr) return null;
+  const d = new Date(fechaStr + 'T00:00:00');
+  if (isNaN(d)) return null;
+  const hoy = new Date();
+  return Math.max(0, (hoy.getFullYear() - d.getFullYear()) * 12 + (hoy.getMonth() - d.getMonth()));
+}
 
 function mostrarNotificacion(msg, esError) {
   const toast = el('toast');
@@ -662,10 +708,13 @@ async function realizarLogin(e) {
 
   guardarSesionLocal();
   el('inputPassword').value = '';
+  registrarAuditoria('Inicio de sesión', `Rol: ${nombreRol(rol)}${modoBootstrap ? ' (modo configuración inicial)' : ''}`);
+  guardarEstado();
   mostrarNotificacion(modoBootstrap ? 'Sesión iniciada en modo configuración inicial. Crea tu usuario administrador en Configuración → Usuarios.' : 'Sesión iniciada con éxito');
 }
 
 function cerrarSesion() {
+  if (SESSION.rol) registrarAuditoria('Cierre de sesión', `Rol: ${nombreRol(SESSION.rol)}`);
   el('view-app').style.display = 'none';
   el('view-login').style.display = 'flex';
   el('content-container').innerHTML = '';
@@ -673,7 +722,7 @@ function cerrarSesion() {
   el('grupo-entidad').style.display = 'none';
   ocultarErrorLogin();
   SESSION.rol = null; SESSION.usuario = null; SESSION.usuarioId = null; SESSION.clienteId = null; SESSION.trabajadorId = null; SESSION.vista = null;
-  guardarSesionLocal();
+  guardarEstado();
   mostrarNotificacion('Sesión finalizada');
 }
 
@@ -796,7 +845,7 @@ function renderClienteInicio(c) {
     ${metricCard('fa-money-bill-transfer', 'var(--warning-bg)', 'var(--warning-amber)', 'Deudas', formatCOP(r.deudas))}
     ${metricCard('fa-bullseye', '#e6ecf7', 'var(--navy)', 'Meta Mensual', formatCOP(r.metas), r.metas ? (Math.min(999, (r.ventas / r.metas) * 100)).toFixed(1) + '% cumplido' : null, 'var(--navy)')}
     ${metricCard('fa-hand-holding-dollar', '#f6ecd0', 'var(--warning-amber)', 'Capital Recibido', formatCOP(c.inversion.recibido), c.inversion.tipo || null, 'var(--text-muted)')}
-    ${metricCard('fa-list-check', '#eef1f5', '#475569', 'Últ. Seguimiento', fechaLarga((ultimoSeguimiento(c.id) || {}).fecha), ultimoSeguimiento(c.id) ? 'Estado: ' + estadoInfo((ultimoSeguimiento(c.id) || { estado: 'optimo' }).estado).label : null, 'var(--text-muted)')}
+    ${metricCard('fa-list-check', '#eef1f5', '#475569', 'Últ. Seguimiento', fechaLarga((ultimoSeguimiento(c.id) || {}).fecha), ultimoSeguimiento(c.id) ? 'Estado: ' + estadoInfo((ultimoSeguimiento(c.id) || { estado: 'normal' }).estado).label : null, 'var(--text-muted)')}
   </div>`;
 }
 
@@ -1047,6 +1096,7 @@ function guardarPerfilCliente(id) {
   c.telefono = el('perfil-telefono').value.trim();
   c.correo = correo;
   c.direccion = el('perfil-direccion').value.trim();
+  registrarAuditoria('Perfil de cliente actualizado', c.negocio.nombre);
   guardarEstado();
   mostrarNotificacion('Perfil actualizado correctamente');
 }
@@ -1113,12 +1163,16 @@ function renderTrabajadorInicio(t) {
         </div>
         <div class="field"><label>Teléfono del cliente</label><input type="text" class="form-control" id="seg-tel-cliente" readonly value="${escapeHTML((negocios[0] || {}).telefono || '')}"></div>
       </div>
+      <div class="form-grid-2">
+        <div class="field"><label style="display:flex;align-items:center;gap:6px;font-weight:700;"><input type="checkbox" id="seg-visita" checked style="width:auto;"> Visita realizada</label></div>
+        <div class="field"><label>Próxima visita</label><input type="date" class="form-control" id="seg-proxima" value="${new Date(Date.now() + 7 * 86400000).toISOString().slice(0, 10)}"></div>
+      </div>
     </div>
 
     <div class="form-box">
       <h4>Seguimiento Semanal — Información del Negocio</h4>
       <div class="form-grid-4">
-        <div class="field"><label>Ventas de la semana</label><input type="number" min="0" class="form-control" id="seg-ventas" placeholder="0"></div>
+        <div class="field"><label>Ventas de la semana</label><input type="number" min="0" class="form-control" id="seg-ventas" placeholder="0" oninput="sugerirAlertaNegocio()"></div>
         <div class="field"><label>Gastos de la semana</label><input type="number" min="0" class="form-control" id="seg-gastos" placeholder="0"></div>
         <div class="field"><label>Utilidad estimada</label><input type="number" class="form-control" id="seg-utilidad" placeholder="0"></div>
         <div class="field"><label>Inventario aproximado</label><input type="number" min="0" class="form-control" id="seg-inventario" placeholder="0"></div>
@@ -1135,12 +1189,14 @@ function renderTrabajadorInicio(t) {
       <div class="form-grid-3">
         <div class="field"><label>Cumplimiento de metas</label><select class="form-control" id="seg-cumplimiento"><option>Parcial</option><option>Total</option><option>No cumplida</option></select></div>
         <div class="field"><label>Uso de la inversión</label><select class="form-control" id="seg-usoinversion"><option>Adecuado</option><option>En revisión</option><option>Inadecuado</option></select></div>
-        <div class="field"><label>Estado del negocio</label>
-          <select class="form-control" id="seg-estado">
-            <option value="optimo">🟢 Óptimo</option>
-            <option value="atencion">🟡 En Atención</option>
-            <option value="riesgo">🔴 En Riesgo</option>
+        <div class="field"><label>Estado del negocio (alerta) <span class="req">*</span></label>
+          <select class="form-control" id="seg-estado" onchange="el('seg-sugerencia').style.display='none';">
+            <option value="normal">🟢 Normal — funcionando correctamente</option>
+            <option value="atencion">🟡 Atención — ventas cayeron 10–20%</option>
+            <option value="riesgo">🟠 Riesgo — liquidez, inventario o pagos</option>
+            <option value="critico">🔴 Crítico — pérdidas, cierre o incumplimiento</option>
           </select>
+          <div id="seg-sugerencia" style="display:none;font-size:.72rem;color:var(--navy);margin-top:5px;background:#eef1f5;padding:5px 8px;border-radius:6px;"></div>
         </div>
       </div>
       <div class="form-grid-2" style="margin-bottom:12px;">
@@ -1183,6 +1239,31 @@ function actualizarTelefonoClienteSeg() {
   if (!sel || !tel) return;
   const c = getCliente(Number(sel.value));
   tel.value = c ? (c.telefono || '') : '';
+  sugerirAlertaNegocio();
+}
+
+/* Sugerencia automática de alerta: compara las ventas que se están digitando
+   contra las de la última semana registrada para ese mismo negocio. Es solo
+   una ayuda para el trabajador -- el estado final siempre lo elige él. */
+function sugerirAlertaNegocio() {
+  const selNeg = el('seg-negocio');
+  const inputVentas = el('seg-ventas');
+  const box = el('seg-sugerencia');
+  if (!selNeg || !inputVentas || !box) return;
+  const clienteId = Number(selNeg.value);
+  const ventasActuales = Number(inputVentas.value);
+  if (!ventasActuales) { box.style.display = 'none'; return; }
+  const anterior = ultimoSeguimiento(clienteId);
+  if (!anterior || !anterior.ventas) { box.style.display = 'none'; return; }
+  const variacion = ((ventasActuales - anterior.ventas) / anterior.ventas) * 100;
+  let sugerido = null;
+  if (variacion <= -50) sugerido = 'critico';
+  else if (variacion <= -20) sugerido = 'riesgo';
+  else if (variacion <= -10) sugerido = 'atencion';
+  else sugerido = 'normal';
+  const info = estadoInfo(sugerido);
+  box.style.display = 'block';
+  box.innerHTML = `<i class="fa-solid fa-lightbulb"></i> Vs. la última semana (${formatCOP(anterior.ventas)}), esto es una variación de ${variacion.toFixed(1)}%. Sugerencia: ${info.emoji} ${info.label}. <button type="button" class="btn-secondary" style="padding:2px 8px;font-size:.7rem;margin-left:4px;" onclick="el('seg-estado').value='${sugerido}';">Usar sugerencia</button>`;
 }
 
 /* ---------------- Evidencias ---------------- */
@@ -1278,6 +1359,8 @@ function guardarSeguimientoTrabajador(trabajadorId) {
     fecha: el('seg-fecha').value,
     semana: el('seg-semana').value.trim(),
     tipo: el('seg-tipo').value,
+    visitaRealizada: el('seg-visita').checked,
+    proximaVisita: el('seg-proxima').value || null,
     ventas: Number(el('seg-ventas').value) || 0,
     gastos: Number(el('seg-gastos').value) || 0,
     utilidad: Number(el('seg-utilidad').value) || 0,
@@ -1303,6 +1386,7 @@ function guardarSeguimientoTrabajador(trabajadorId) {
     cli.resultados.utilidad = nuevo.utilidad;
     cli.resultados.inventario = nuevo.inventario;
   }
+  registrarAuditoria('Seguimiento registrado', `${cli ? cli.negocio.nombre : 'Negocio eliminado'} — alerta: ${estadoInfo(nuevo.estado).label}`);
   resetEvidenciasTemp();
   guardarEstado();
   mostrarNotificacion('¡Seguimiento semanal guardado correctamente!');
@@ -1377,6 +1461,11 @@ function verSeguimientoDetalle(id) {
       ${field('Fecha', fechaLarga(s.fecha))}
       ${field('Tipo', s.tipo)}
       ${field('Realizado por', tr ? tr.nombre : 'Desconocido')}
+    </div>
+    <div class="form-grid-3" style="margin-bottom:6px;">
+      ${field('Visita realizada', s.visitaRealizada === false ? 'No' : 'Sí')}
+      ${field('Próxima visita', s.proximaVisita ? fechaLarga(s.proximaVisita) : 'No definida')}
+      ${field('Alerta del negocio', badgeEstado(s.estado), true)}
     </div>
     <div class="form-box">
       <h4>Cifras de la Semana</h4>
@@ -1475,16 +1564,17 @@ function adminStats() {
   const clientes = DB.clientes;
   const capitalInvertido = clientes.reduce((a, c) => a + (c.inversion ? c.inversion.aprobado : 0), 0);
   const negociosActivos = clientes.length;
+  const negociosCriticos = clientes.filter(c => c.estado === 'critico').length;
   const negociosRiesgo = clientes.filter(c => c.estado === 'riesgo').length;
   const negociosAtencion = clientes.filter(c => c.estado === 'atencion').length;
-  const negociosOptimos = clientes.filter(c => c.estado === 'optimo').length;
+  const negociosNormal = clientes.filter(c => c.estado === 'normal').length;
   const utilidadGenerada = clientes.reduce((a, c) => a + (c.resultados ? c.resultados.utilidad : 0), 0);
   const seguimientosRealizados = DB.seguimientos.length;
   const refSemana = infoSemanaISO(new Date().toISOString().slice(0, 10));
   const totalAsignados = DB.trabajadores.reduce((a, t) => a + (t.negocios ? t.negocios.length : 0), 0);
   const hechosEstaSemana = new Set(DB.seguimientos.filter(s => esMismaSemanaISO(s.fecha, refSemana)).map(s => s.clienteId)).size;
   const seguimientosPendientes = totalAsignados - hechosEstaSemana;
-  return { capitalInvertido, negociosActivos, negociosRiesgo, negociosAtencion, negociosOptimos, utilidadGenerada, seguimientosRealizados, seguimientosPendientes: Math.max(0, seguimientosPendientes) };
+  return { capitalInvertido, negociosActivos, negociosCriticos, negociosRiesgo, negociosAtencion, negociosNormal, utilidadGenerada, seguimientosRealizados, seguimientosPendientes: Math.max(0, seguimientosPendientes) };
 }
 
 function renderAdminDashboard() {
@@ -1494,23 +1584,24 @@ function renderAdminDashboard() {
   <div class="metrics-row">
     ${metricCard('fa-wallet', 'var(--success-bg)', 'var(--success-green)', 'Capital Invertido', formatCOP(st.capitalInvertido))}
     ${metricCard('fa-store', '#e6ecf7', 'var(--navy)', 'Negocios Activos', st.negociosActivos)}
-    ${metricCard('fa-triangle-exclamation', 'var(--danger-bg)', 'var(--danger-red)', 'Negocios en Riesgo', st.negociosRiesgo)}
-    ${metricCard('fa-chart-pie', 'var(--success-bg)', 'var(--success-green)', 'Utilidad Generada', formatCOP(st.utilidadGenerada), 'Este mes', 'var(--success-green)')}
+    ${metricCard('fa-triangle-exclamation', 'var(--risk-orange-bg)', 'var(--risk-orange)', 'Negocios en Riesgo', st.negociosRiesgo)}
+    ${metricCard('fa-circle-exclamation', 'var(--danger-bg)', 'var(--danger-red)', 'Negocios en Crítico', st.negociosCriticos)}
   </div>
   <div class="metrics-row">
+    ${metricCard('fa-chart-pie', 'var(--success-bg)', 'var(--success-green)', 'Utilidad Generada', formatCOP(st.utilidadGenerada), 'Este mes', 'var(--success-green)')}
     ${metricCard('fa-clipboard-check', 'var(--warning-bg)', 'var(--warning-amber)', 'Seguimientos Realizados', st.seguimientosRealizados)}
     ${metricCard('fa-clock', 'var(--danger-bg)', 'var(--danger-red)', 'Seguimientos Pendientes', st.seguimientosPendientes, semanaActualLabel(), 'var(--danger-red)')}
-    ${metricCard('fa-users', '#e6ecf7', 'var(--navy)', 'Total de Inversiones', DB.clientes.length)}
     ${metricCard('fa-user-tie', '#eef1f5', '#475569', 'Trabajadores Activos', DB.trabajadores.length)}
   </div>
   <div style="display:grid;grid-template-columns:1fr 2fr;gap:20px;">
     <div class="card-table">
-      <div class="card-table-header"><h3>Estado de los Negocios</h3></div>
+      <div class="card-table-header"><h3>Semáforo de Alertas de los Negocios</h3></div>
       <div style="max-width:220px;margin:0 auto;"><canvas id="chart-estado-negocios"></canvas></div>
       <div style="text-align:center;margin-top:14px;font-size:.85rem;">
-        <p>🟢 Óptimo: <b>${st.negociosOptimos}</b></p>
-        <p>🟡 En Atención: <b>${st.negociosAtencion}</b></p>
-        <p>🔴 En Riesgo: <b>${st.negociosRiesgo}</b></p>
+        <p>🟢 Normal: <b>${st.negociosNormal}</b></p>
+        <p>🟡 Atención: <b>${st.negociosAtencion}</b></p>
+        <p>🟠 Riesgo: <b>${st.negociosRiesgo}</b></p>
+        <p>🔴 Crítico: <b>${st.negociosCriticos}</b></p>
       </div>
     </div>
     <div class="card-table">
@@ -1576,6 +1667,7 @@ function atenderSolicitudEdicion(id) {
   s.estado = 'Atendida';
   s.respuesta = respuestaEl ? respuestaEl.value.trim() : (s.respuesta || '');
   s.fechaRespuesta = new Date().toISOString().slice(0, 10);
+  registrarAuditoria('Solicitud de edición atendida', `${s.clienteNombre} — ${s.negocioNombre}`);
   closeModal();
   const tabla = el('tabla-solicitudes-edicion');
   if (tabla) tabla.innerHTML = tablaSolicitudesEdicion();
@@ -1589,8 +1681,8 @@ function afterAdminDashboard() {
     new Chart(ctx, {
       type: 'doughnut',
       data: {
-        labels: ['Óptimo', 'En Atención', 'En Riesgo'],
-        datasets: [{ data: [st.negociosOptimos, st.negociosAtencion, st.negociosRiesgo], backgroundColor: ['#0f9d58', '#b8860b', '#c0392b'] }]
+        labels: ['Normal', 'Atención', 'Riesgo', 'Crítico'],
+        datasets: [{ data: [st.negociosNormal, st.negociosAtencion, st.negociosRiesgo, st.negociosCriticos], backgroundColor: ['#0f9d58', '#b8860b', '#c05621', '#c0392b'] }]
       },
       options: { plugins: { legend: { display: false } } }
     });
@@ -1697,8 +1789,10 @@ function guardarNuevoCliente() {
       rentabilidad: 0
     },
     resultados: { ventas: 0, gastos: 0, utilidad: 0, inventario: 0, deudas: 0, metas: 0 },
-    estado: 'optimo'
+    estado: 'normal',
+    proceso: { requisitos: { antiguedad: false, documentacion: false, evidenciaVentas: false, estadosFinancieros: false, referencias: false, visitaTrabajador: false, evaluacionRiesgo: false }, etapas: { contrato: false, desembolso: false, seguimientoSemanal: false, reporte: false, liquidacion: false, revisionMensual: false } }
   });
+  registrarAuditoria('Cliente registrado', `${nombre} — ${negnombre}`);
   closeModal();
   mostrarNotificacion('Cliente registrado correctamente');
   navegar('a-clientes');
@@ -1714,6 +1808,7 @@ function eliminarCliente(id) {
     // Los usuarios de login que apuntaban a este cliente quedan desactivados,
     // para que nadie pueda seguir entrando a un negocio que ya no existe.
     DB.usuarios.forEach(u => { if (u.rol === 'client' && u.entidadId === id) u.activo = false; });
+    registrarAuditoria('Cliente eliminado', `${c.nombre} — ${c.negocio.nombre}`);
     guardarEstado();
     mostrarNotificacion('Cliente eliminado correctamente');
     navegar('a-clientes');
@@ -1723,12 +1818,14 @@ function eliminarCliente(id) {
 function verClienteDetalle(id) {
   const c = getCliente(id);
   if (!c) return;
+  asegurarProcesoCliente(c);
   const hist = seguimientosDeCliente(id);
   const gid = 'cli-detalle-' + id;
   openModal(`${escapeHTML(c.nombre)} — ${escapeHTML(c.negocio.nombre)}`, `
     <div class="tabs">
       <button class="tab-btn active" onclick="switchTab('${gid}','${gid}-negocio', this)">Negocio</button>
       <button class="tab-btn" onclick="switchTab('${gid}','${gid}-financiera', this)">Info. Financiera</button>
+      <button class="tab-btn" onclick="switchTab('${gid}','${gid}-proceso', this)">Proceso de Inversión</button>
       <button class="tab-btn" onclick="switchTab('${gid}','${gid}-historial', this)">Historial</button>
     </div>
     <div class="tab-content active" id="${gid}-negocio" data-tabgroup="${gid}">
@@ -1765,6 +1862,9 @@ function verClienteDetalle(id) {
         <button class="btn-main" onclick="guardarResultadosCliente(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Resultados</button>
       </div>
     </div>
+    <div class="tab-content" id="${gid}-proceso" data-tabgroup="${gid}">
+      ${renderProcesoInversion(c)}
+    </div>
     <div class="tab-content" id="${gid}-historial" data-tabgroup="${gid}">
       <div class="table-scroll"><table>
         <thead><tr><th>Semana</th><th>Fecha</th><th>Estado</th><th>Ventas</th><th>Utilidad</th><th></th></tr></thead>
@@ -1777,6 +1877,83 @@ function verClienteDetalle(id) {
   `);
 }
 
+const REQUISITOS_LABELS = {
+  antiguedad: 'Antigüedad mínima del negocio',
+  documentacion: 'Documentación completa entregada',
+  evidenciaVentas: 'Evidencia de ventas verificada',
+  estadosFinancieros: 'Estados financieros básicos',
+  referencias: 'Referencias comprobadas',
+  visitaTrabajador: 'Visita del trabajador realizada',
+  evaluacionRiesgo: 'Evaluación de riesgo realizada'
+};
+const ETAPAS_LABELS = {
+  contrato: '1. Contrato firmado',
+  desembolso: '2. Desembolso realizado',
+  seguimientoSemanal: '3. Seguimiento semanal en curso',
+  reporte: '4. Reporte entregado al cliente',
+  liquidacion: '5. Liquidación',
+  revisionMensual: '6. Revisión mensual al día'
+};
+
+function renderProcesoInversion(c) {
+  const p = asegurarProcesoCliente(c);
+  const seguimientoAuto = seguimientosDeCliente(c.id).length > 0;
+  const total = Object.keys(REQUISITOS_LABELS).length;
+  const cumplidos = Object.keys(REQUISITOS_LABELS).filter(k => p.requisitos[k]).length;
+  const puntaje = Math.round((cumplidos / total) * 100);
+  const apto = puntaje >= DB.parametros.puntajeMinimoAprobacion;
+  const meses = mesesDesde(c.negocio.fechaInicio);
+  const antiguedadOk = meses === null || meses >= DB.parametros.mesesMinimoFuncionamiento;
+  const excedeMax = c.inversion.aprobado > DB.parametros.montoMaximoInversion;
+
+  return `
+  <div class="form-box">
+    <h4>Antes de Aprobar — Requisitos</h4>
+    ${meses !== null ? `<p style="font-size:.78rem;margin-bottom:8px;color:${antiguedadOk ? 'var(--success-green)' : 'var(--danger-red)'};"><i class="fa-solid ${antiguedadOk ? 'fa-circle-check' : 'fa-circle-exclamation'}"></i> El negocio tiene ${meses} mes(es) de funcionamiento (mínimo del reglamento: ${DB.parametros.mesesMinimoFuncionamiento}).</p>` : ''}
+    <div class="chip-list" style="margin-bottom:12px;">
+      ${Object.keys(REQUISITOS_LABELS).map(k => `<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="req-${k}-${c.id}" ${p.requisitos[k] ? 'checked' : ''}> ${escapeHTML(REQUISITOS_LABELS[k])}
+      </label>`).join('')}
+    </div>
+    <p style="font-size:.85rem;font-weight:700;color:${apto ? 'var(--success-green)' : 'var(--danger-red)'};">
+      Puntaje: ${puntaje}% (mínimo para aprobar: ${DB.parametros.puntajeMinimoAprobacion}%) — ${apto ? 'Apto para aprobación' : 'No apto todavía'}
+    </p>
+    ${excedeMax ? `<p style="font-size:.78rem;color:var(--danger-red);"><i class="fa-solid fa-triangle-exclamation"></i> El capital aprobado (${formatCOP(c.inversion.aprobado)}) supera el monto máximo del reglamento (${formatCOP(DB.parametros.montoMaximoInversion)}).</p>` : ''}
+    <button class="btn-main" onclick="guardarRequisitosProceso(${c.id})" style="margin-top:10px;"><i class="fa-solid fa-floppy-disk"></i> Guardar Requisitos</button>
+  </div>
+  <div class="form-box" style="margin-bottom:0;">
+    <h4>Después de Aprobar — Etapas</h4>
+    <div class="chip-list" style="margin-bottom:12px;">
+      ${Object.keys(ETAPAS_LABELS).map(k => `<label class="chip" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="etapa-${k}-${c.id}" ${(k === 'seguimientoSemanal' ? seguimientoAuto : p.etapas[k]) ? 'checked' : ''} ${k === 'seguimientoSemanal' ? 'disabled' : ''}> ${escapeHTML(ETAPAS_LABELS[k])}
+      </label>`).join('')}
+    </div>
+    <p style="font-size:.72rem;color:var(--text-muted);margin-bottom:10px;">El paso "Seguimiento semanal en curso" se marca solo cuando ya existe al menos un seguimiento registrado.</p>
+    <button class="btn-main" onclick="guardarEtapasProceso(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Etapas</button>
+  </div>`;
+}
+
+function guardarRequisitosProceso(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  const p = asegurarProcesoCliente(c);
+  Object.keys(REQUISITOS_LABELS).forEach(k => { const box = el(`req-${k}-${id}`); if (box) p.requisitos[k] = box.checked; });
+  registrarAuditoria('Requisitos de inversión actualizados', c.negocio.nombre);
+  guardarEstado();
+  mostrarNotificacion('Requisitos actualizados correctamente');
+}
+
+function guardarEtapasProceso(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  const p = asegurarProcesoCliente(c);
+  Object.keys(ETAPAS_LABELS).forEach(k => { if (k === 'seguimientoSemanal') return; const box = el(`etapa-${k}-${id}`); if (box) p.etapas[k] = box.checked; });
+  p.etapas.seguimientoSemanal = seguimientosDeCliente(id).length > 0;
+  registrarAuditoria('Etapas de inversión actualizadas', c.negocio.nombre);
+  guardarEstado();
+  mostrarNotificacion('Etapas actualizadas correctamente');
+}
+
 function guardarResultadosCliente(id) {
   const c = getCliente(id);
   if (!c) return;
@@ -1786,6 +1963,7 @@ function guardarResultadosCliente(id) {
   c.resultados.inventario = Number(el(`res-inventario-${id}`).value) || 0;
   c.resultados.deudas = Number(el(`res-deudas-${id}`).value) || 0;
   c.resultados.metas = Number(el(`res-metas-${id}`).value) || 0;
+  registrarAuditoria('Resultados de negocio editados', c.negocio.nombre);
   guardarEstado();
   mostrarNotificacion('Resultados del negocio actualizados');
 }
@@ -1829,6 +2007,7 @@ function guardarNuevoTrabajador() {
   if (!telefono) { mostrarNotificacion('Ingrese el teléfono del trabajador', true); return; }
   const sel = Array.from(el('nt-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v));
   DB.trabajadores.push({ id: DB.nextId.trabajador++, nombre, telefono, negocios: sel });
+  registrarAuditoria('Trabajador registrado', nombre);
   closeModal();
   mostrarNotificacion('Trabajador registrado correctamente');
   navegar('a-trabajadores');
@@ -1839,6 +2018,7 @@ function eliminarTrabajador(id) {
   if (!t) return;
   confirmarAccion(`¿Eliminar al trabajador ${t.nombre}? Sus negocios asignados quedarán sin trabajador y sus seguimientos históricos se conservarán.`, () => {
     DB.trabajadores = DB.trabajadores.filter(x => x.id !== id);
+    registrarAuditoria('Trabajador eliminado', t.nombre);
     DB.usuarios.forEach(u => { if (u.rol === 'worker' && u.entidadId === id) u.activo = false; });
     guardarEstado();
     mostrarNotificacion('Trabajador eliminado correctamente');
@@ -1903,11 +2083,14 @@ function guardarNuevaInversion() {
   if (capital <= 0) { mostrarNotificacion('Ingrese un capital aprobado mayor a cero', true); return; }
   const c = getCliente(Number(el('ni-cliente').value));
   if (c) {
+    const excedeMax = (c.inversion.aprobado + capital) > DB.parametros.montoMaximoInversion;
     c.inversion.aprobado += capital;
     c.inversion.recibido = c.inversion.aprobado;
     c.inversion.fecha = el('ni-fecha').value || c.inversion.fecha;
     c.inversion.tipo = el('ni-tipo').value.trim() || c.inversion.tipo;
     c.inversion.participacion = Number(el('ni-participacion').value) || c.inversion.participacion;
+    registrarAuditoria('Inversión registrada', `${c.negocio.nombre} — ${formatCOP(capital)}`);
+    if (excedeMax) mostrarNotificacion(`Atención: el capital aprobado total (${formatCOP(c.inversion.aprobado)}) supera el monto máximo del reglamento (${formatCOP(DB.parametros.montoMaximoInversion)})`, true);
   }
   closeModal();
   mostrarNotificacion('Inversión registrada correctamente');
@@ -1921,10 +2104,11 @@ function renderAdminSeguimientos() {
     <div class="card-table-header">
       <h3>Todos los Seguimientos</h3>
       <select class="form-control" style="max-width:200px;" id="filtro-estado-seg" onchange="filtrarSeguimientosAdmin()">
-        <option value="">Todos los estados</option>
-        <option value="optimo">🟢 Óptimo</option>
-        <option value="atencion">🟡 En Atención</option>
-        <option value="riesgo">🔴 En Riesgo</option>
+        <option value="">Todas las alertas</option>
+        <option value="normal">🟢 Normal</option>
+        <option value="atencion">🟡 Atención</option>
+        <option value="riesgo">🟠 Riesgo</option>
+        <option value="critico">🔴 Crítico</option>
       </select>
     </div>
     <div class="table-scroll" id="tabla-seguimientos-admin">${tablaSeguimientosAdmin(all)}</div>
@@ -1933,13 +2117,13 @@ function renderAdminSeguimientos() {
 
 function tablaSeguimientosAdmin(list) {
   return `<table>
-    <thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Estado</th><th>Observaciones</th><th>Evidencias</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Visita</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Alerta</th><th>Próx. Visita</th><th>Observaciones</th><th>Evidencias</th><th></th></tr></thead>
     <tbody>
       ${list.length ? list.map(s => {
         const obs = (s.evidencias && s.evidencias.observaciones) ? s.evidencias.observaciones : '';
         const obsCorta = obs.length > 40 ? obs.slice(0, 38) + '…' : obs;
-        return `<tr><td>${fechaLarga(s.fecha)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td><td title="${escapeHTML(obs)}">${obsCorta ? escapeHTML(obsCorta) : '-'}</td><td>${(s.evidencias?.fotos || []).length + (s.evidencias?.documentos || []).length + (s.evidencias?.facturas || []).length} archivos</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`;
-      }).join('') : `<tr><td colspan="10" class="empty-state">No hay seguimientos con ese estado.</td></tr>`}
+        return `<tr><td>${fechaLarga(s.fecha)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${nombreTrabajador(s.trabajadorId)}</td><td>${s.visitaRealizada === false ? '<span class="badge badge-amber">No</span>' : '<span class="badge badge-green">Sí</span>'}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td><td>${s.proximaVisita ? fechaLarga(s.proximaVisita) : '-'}</td><td title="${escapeHTML(obs)}">${obsCorta ? escapeHTML(obsCorta) : '-'}</td><td>${(s.evidencias?.fotos || []).length + (s.evidencias?.documentos || []).length + (s.evidencias?.facturas || []).length} archivos</td><td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td></tr>`;
+      }).join('') : `<tr><td colspan="12" class="empty-state">No hay seguimientos con esa alerta.</td></tr>`}
     </tbody>
   </table>`;
 }
@@ -1954,7 +2138,7 @@ function renderAdminReportes() {
   if (!DB.clientes.length) {
     return `<div class="card-table"><div class="empty-state">Aún no hay datos suficientes para generar reportes. Registra clientes y seguimientos primero.</div></div>`;
   }
-  const enRiesgo = DB.clientes.filter(c => c.estado === 'riesgo');
+  const enRiesgo = DB.clientes.filter(c => c.estado === 'riesgo' || c.estado === 'critico').sort((a, b) => (a.estado === 'critico' ? -1 : 1));
   return `
   <div class="card-table">
     <div class="card-table-header"><h3>Ventas por Negocio</h3></div>
@@ -1986,14 +2170,14 @@ function renderAdminReportes() {
     }).join('')}
   </div>
   <div class="card-table">
-    <div class="card-table-header"><h3>Negocios en Riesgo</h3><span class="subtitle">Negocios cuyo último seguimiento quedó marcado en 🔴 Riesgo</span></div>
+    <div class="card-table-header"><h3>Negocios en Riesgo o Crítico</h3><span class="subtitle">Negocios cuyo último seguimiento quedó marcado en 🟠 Riesgo o 🔴 Crítico</span></div>
     <div class="table-scroll"><table>
-      <thead><tr><th>Negocio</th><th>Cliente</th><th>Ciudad</th><th>Utilidad</th><th>Deudas</th><th>Último Seguimiento</th></tr></thead>
+      <thead><tr><th>Alerta</th><th>Negocio</th><th>Cliente</th><th>Ciudad</th><th>Utilidad</th><th>Deudas</th><th>Último Seguimiento</th></tr></thead>
       <tbody>
         ${enRiesgo.length ? enRiesgo.map(c => {
           const u = ultimoSeguimiento(c.id);
-          return `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${formatCOP(c.resultados.utilidad)}</td><td>${formatCOP(c.resultados.deudas)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td></tr>`;
-        }).join('') : `<tr><td colspan="6" class="empty-state">No hay negocios en riesgo actualmente.</td></tr>`}
+          return `<tr><td>${badgeEstado(c.estado)}</td><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${formatCOP(c.resultados.utilidad)}</td><td>${formatCOP(c.resultados.deudas)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td></tr>`;
+        }).join('') : `<tr><td colspan="7" class="empty-state">No hay negocios en riesgo o crítico actualmente.</td></tr>`}
       </tbody>
     </table></div>
   </div>`;
@@ -2083,6 +2267,9 @@ function renderAdminConfiguracion() {
     <button class="tab-btn" onclick="switchTab('cfg','cfg-permisos', this)"><i class="fa-solid fa-lock"></i> Roles y Permisos</button>
     <button class="tab-btn" onclick="switchTab('cfg','cfg-metas', this)"><i class="fa-solid fa-bullseye"></i> Metas</button>
     <button class="tab-btn" onclick="switchTab('cfg','cfg-categorias', this)"><i class="fa-solid fa-tags"></i> Categorías</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-reglamento', this)"><i class="fa-solid fa-scale-balanced"></i> Reglamento de Inversión</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-auditoria', this)"><i class="fa-solid fa-clock-rotate-left"></i> Auditoría</button>
+    <button class="tab-btn" onclick="switchTab('cfg','cfg-privacidad', this)"><i class="fa-solid fa-shield-halved"></i> Privacidad y Respaldo</button>
   </div>
 
   <div class="tab-content active" id="cfg-parametros" data-tabgroup="cfg">${renderCfgParametros()}</div>
@@ -2090,6 +2277,9 @@ function renderAdminConfiguracion() {
   <div class="tab-content" id="cfg-permisos" data-tabgroup="cfg">${renderCfgPermisos()}</div>
   <div class="tab-content" id="cfg-metas" data-tabgroup="cfg">${renderCfgMetas()}</div>
   <div class="tab-content" id="cfg-categorias" data-tabgroup="cfg">${renderCfgCategorias()}</div>
+  <div class="tab-content" id="cfg-reglamento" data-tabgroup="cfg">${renderCfgReglamento()}</div>
+  <div class="tab-content" id="cfg-auditoria" data-tabgroup="cfg">${renderCfgAuditoria()}</div>
+  <div class="tab-content" id="cfg-privacidad" data-tabgroup="cfg">${renderCfgPrivacidad()}</div>
   `;
 }
 
@@ -2115,6 +2305,7 @@ function guardarConfiguracionAdmin() {
   DB.parametros.moneda = el('cfg-moneda').value.trim() || DB.parametros.moneda;
   DB.parametros.periodoSeguimiento = el('cfg-periodo').value.trim() || DB.parametros.periodoSeguimiento;
   DB.parametros.metaCumplimientoMinimo = Number(el('cfg-cumplimiento').value) || 80;
+  registrarAuditoria('Parámetros generales actualizados', '');
   guardarEstado();
   mostrarNotificacion('Configuración guardada correctamente');
 }
@@ -2200,6 +2391,7 @@ function guardarNuevoUsuario() {
     entidadNombre = t.nombre;
   }
   DB.usuarios.push({ id: DB.nextId.usuario++, nombre, rol, entidadId, entidadNombre, password, activo: true });
+  registrarAuditoria('Usuario registrado', `${nombre} (${nombreRol(rol)})`);
   closeModal();
   mostrarNotificacion('Usuario registrado correctamente');
   navegar('a-configuracion');
@@ -2220,6 +2412,8 @@ function guardarCambioPassword(id) {
   const password = el('cp-password').value;
   if (!password || password.length < 4) { mostrarNotificacion('La contraseña debe tener al menos 4 caracteres', true); return; }
   u.password = password;
+  registrarAuditoria('Contraseña restablecida', u.nombre);
+  guardarEstado();
   closeModal();
   mostrarNotificacion('Contraseña actualizada correctamente');
 }
@@ -2228,6 +2422,7 @@ function toggleUsuarioActivo(id) {
   const u = DB.usuarios.find(x => x.id === id);
   if (!u) return;
   u.activo = !u.activo;
+  registrarAuditoria(u.activo ? 'Usuario activado' : 'Usuario desactivado', u.nombre);
   guardarEstado();
   navegar('a-configuracion');
   setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[1]; if (btn) btn.click(); }, 30);
@@ -2235,7 +2430,9 @@ function toggleUsuarioActivo(id) {
 
 function eliminarUsuario(id) {
   confirmarAccion('¿Eliminar este usuario del directorio? Ya no podrá iniciar sesión con esas credenciales.', () => {
+    const u = DB.usuarios.find(x => x.id === id);
     DB.usuarios = DB.usuarios.filter(u => u.id !== id);
+    registrarAuditoria('Usuario eliminado', u ? u.nombre : String(id));
     guardarEstado();
     mostrarNotificacion('Usuario eliminado');
     navegar('a-configuracion');
@@ -2273,6 +2470,7 @@ function renderCfgPermisos() {
 }
 
 function guardarPermisos() {
+  registrarAuditoria('Roles y permisos actualizados', '');
   guardarEstado();
   mostrarNotificacion('Permisos actualizados. Se aplicarán la próxima vez que cada rol inicie sesión.');
 }
@@ -2331,6 +2529,7 @@ function agregarCategoria() {
   if (!val) { mostrarNotificacion('Escribe el nombre de la categoría', true); return; }
   if (DB.categorias.some(c => c.toLowerCase() === val.toLowerCase())) { mostrarNotificacion('Esa categoría ya existe', true); return; }
   DB.categorias.push(val);
+  registrarAuditoria('Categoría agregada', val);
   guardarEstado();
   navegar('a-configuracion');
   setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[4]; if (btn) btn.click(); }, 30);
@@ -2340,10 +2539,123 @@ function eliminarCategoria(idx) {
   const nombre = DB.categorias[idx];
   confirmarAccion(`¿Eliminar la categoría "${nombre}"? Los negocios que ya la tienen asignada conservarán el valor actual.`, () => {
     DB.categorias.splice(idx, 1);
+    registrarAuditoria('Categoría eliminada', nombre);
     guardarEstado();
     navegar('a-configuracion');
     setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[4]; if (btn) btn.click(); }, 30);
   });
+}
+
+/* ---- Reglamento de Inversión ---- */
+function renderCfgReglamento() {
+  const p = DB.parametros;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Reglamento de Inversión</h3></div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:14px;">Estos valores se usan automáticamente para evaluar cada negocio en la pestaña "Proceso de Inversión" de su ficha.</p>
+    <div class="form-box"><h4>Para Solicitar Inversión</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Meses mínimos funcionando</label><input type="number" min="0" class="form-control" id="rgl-meses" value="${p.mesesMinimoFuncionamiento}"></div>
+      </div>
+      <p style="font-size:.76rem;color:var(--text-muted);">Además se exige: documentación completa, evidencia de ventas, estados financieros básicos, referencias, visita del trabajador y evaluación de riesgo (se marcan en la ficha de cada cliente).</p>
+    </div>
+    <div class="form-box"><h4>Para Aprobar</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Puntaje mínimo de aprobación (%)</label><input type="number" min="0" max="100" class="form-control" id="rgl-puntaje" value="${p.puntajeMinimoAprobacion}"></div>
+        <div class="field"><label>Monto máximo de inversión</label><input type="number" min="0" class="form-control" id="rgl-monto" value="${p.montoMaximoInversion}"></div>
+      </div>
+      <p style="font-size:.76rem;color:var(--text-muted);">El puntaje se calcula automáticamente según cuántos de los 7 requisitos estén marcados como cumplidos. El destino específico del dinero y el nivel de riesgo aceptable se registran por cliente (campo "Destino de la inversión" y el estado/alerta del negocio).</p>
+    </div>
+    <div class="form-box" style="margin-bottom:0;"><h4>Después de Aprobar</h4>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:10px;">Ciclo de vida de cada inversión (se marca por cliente en su pestaña "Proceso de Inversión"): Contrato → Desembolso → Seguimiento semanal → Reporte → Liquidación → Revisión mensual.</p>
+      <div class="field"><label>Notas y condiciones adicionales del reglamento</label><textarea class="form-control" rows="3" id="rgl-texto">${escapeHTML(p.reglamentoTexto)}</textarea></div>
+    </div>
+    <button class="btn-main" onclick="guardarReglamento()" style="margin-top:14px;"><i class="fa-solid fa-floppy-disk"></i> Guardar Reglamento</button>
+  </div>`;
+}
+
+function guardarReglamento() {
+  DB.parametros.mesesMinimoFuncionamiento = Number(el('rgl-meses').value) || 0;
+  DB.parametros.puntajeMinimoAprobacion = Number(el('rgl-puntaje').value) || 0;
+  DB.parametros.montoMaximoInversion = Number(el('rgl-monto').value) || 0;
+  DB.parametros.reglamentoTexto = el('rgl-texto').value.trim();
+  registrarAuditoria('Reglamento de inversión actualizado', '');
+  guardarEstado();
+  mostrarNotificacion('Reglamento actualizado correctamente');
+}
+
+/* ---- Auditoría ---- */
+function renderCfgAuditoria() {
+  const list = (DB.auditoria || []).slice(0, 150);
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>Registro de Auditoría</h3>
+      <span class="subtitle">Quién hizo qué y cuándo. Se muestran las últimas ${list.length} acciones (se conservan hasta 300).</span>
+    </div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Hora</th><th>Usuario</th><th>Rol</th><th>Acción</th><th>Detalle</th></tr></thead>
+      <tbody>
+        ${list.length ? list.map(a => `<tr><td>${fechaLarga(a.fecha)}</td><td>${escapeHTML(a.hora)}</td><td>${escapeHTML(a.usuario)}</td><td>${['client', 'worker', 'admin'].includes(a.rol) ? nombreRol(a.rol) : '-'}</td><td>${escapeHTML(a.accion)}</td><td>${escapeHTML(a.detalle)}</td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">Aún no hay acciones registradas.</td></tr>`}
+      </tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ---- Privacidad, autenticación y respaldo ---- */
+function renderCfgPrivacidad() {
+  const p = DB.parametros;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Política de Tratamiento de Datos</h3></div>
+    <div class="field" style="margin-bottom:14px;"><textarea class="form-control" rows="5" id="priv-politica">${escapeHTML(p.politicaDatos)}</textarea></div>
+    <button class="btn-main" onclick="guardarPoliticaDatos()"><i class="fa-solid fa-floppy-disk"></i> Guardar Política</button>
+    <p style="font-size:.72rem;color:var(--text-muted);margin-top:10px;">Este texto es visible para cualquier persona desde la pantalla de inicio de sesión, incluso sin haber ingresado.</p>
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Seguridad y Niveles de Acceso</h3></div>
+    <ul style="font-size:.82rem;color:#334155;line-height:1.9;padding-left:18px;">
+      <li><b>Autenticación:</b> cada persona ingresa con usuario y contraseña propios (ver pestaña Usuarios). No hay acceso sin credenciales válidas.</li>
+      <li><b>Niveles de acceso:</b> Cliente, Trabajador y Administrador ven únicamente los módulos habilitados para su rol (ver pestaña Roles y Permisos).</li>
+      <li><b>Trazabilidad:</b> toda creación, edición o eliminación queda registrada con usuario, rol, fecha y hora (ver pestaña Auditoría).</li>
+      <li><b>Documentos:</b> las evidencias (fotos, facturas, documentos) quedan asociadas únicamente al seguimiento y cliente donde se cargaron; solo el trabajador que los sube, el cliente dueño del negocio y los administradores pueden verlos.</li>
+    </ul>
+  </div>
+  <div class="card-table" style="margin-bottom:0;">
+    <div class="card-table-header"><h3>Copias de Seguridad</h3></div>
+    <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;">Descarga un respaldo completo de la información de la plataforma (clientes, trabajadores, seguimientos, usuarios y configuración) en un archivo. Guárdalo en un lugar seguro; contiene información personal y financiera de clientes.</p>
+    <button class="btn-main" onclick="descargarCopiaSeguridad()"><i class="fa-solid fa-download"></i> Descargar Copia de Seguridad</button>
+  </div>`;
+}
+
+function guardarPoliticaDatos() {
+  DB.parametros.politicaDatos = el('priv-politica').value.trim();
+  registrarAuditoria('Política de tratamiento de datos actualizada', '');
+  guardarEstado();
+  mostrarNotificacion('Política actualizada correctamente');
+}
+
+function descargarCopiaSeguridad() {
+  const hoy = new Date().toISOString().slice(0, 10);
+  const contenido = JSON.stringify(DB, null, 2);
+  const blob = new Blob([contenido], { type: 'application/json;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `Respaldo_JORAN_${hoy}.json`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+  registrarAuditoria('Copia de seguridad descargada', '');
+  guardarEstado();
+  mostrarNotificacion('Copia de seguridad descargada correctamente');
+}
+
+/* Muestra la política de tratamiento de datos desde la pantalla de login,
+   sin necesidad de haber iniciado sesión. */
+function verPoliticaDatosLogin() {
+  openModal('Política de Tratamiento de Datos', `<p style="font-size:.85rem;color:#334155;white-space:pre-wrap;">${escapeHTML(DB.parametros.politicaDatos)}</p>`);
 }
 </script>
 </body>
