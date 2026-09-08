@@ -988,4 +988,174 @@ function abrirModalResolverSolicitud(id) {
   if (!s) return;
   openModal('Resolver Solicitud de Inversión', `
     <p style="margin-bottom:12px;"><b>${escapeHTML(s.negocioNombre)}</b> solicita ${formatCOP(s.montoSolicitado)}.</p>
-    <div class="field" style="margin-bottom:12px;"><label>Decisión</label><select class="form
+    <div class="field" style="margin-bottom:12px;"><label>Decisión</label><select class="form-control" id="dec-sol"><option value="Aprobada">Aprobar</option><option value="Rechazada">Rechazar</option></select></div>
+    <div class="field" style="margin-bottom:16px;"><label>Observación</label><textarea class="form-control" id="dec-obs" rows="3"></textarea></div>
+    <button class="btn-main" onclick="confirmarResolucionSolicitud(${id})">Confirmar Decisión</button>
+  `);
+}
+
+function confirmarResolucionSolicitud(id) {
+  const s = DB.solicitudesInversion.find(x => x.id === id);
+  if (!s) return;
+  const estado = el('dec-sol').value;
+  s.estado = estado;
+  s.comentario = el('dec-obs').value.trim();
+  const c = getCliente(s.clienteId);
+  if (c && estado === 'Aprobada') {
+    c.inversion.aprobado = s.montoSolicitado;
+    c.inversion.recibido = s.montoSolicitado;
+    c.inversion.estado = 'Activa';
+  }
+  registrarAuditoria('Solicitud de inversión resuelta', `${s.negocioNombre}: ${estado}`);
+  guardarEstado();
+  closeModal();
+  mostrarNotificacion(`Solicitud ${estado.toLowerCase()}`);
+  navegar('a-solicitudes');
+}
+
+function renderAdminSeguimientos() {
+  const list = DB.seguimientos;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Historial de Seguimientos en Campo</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Semana</th><th>Negocio</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Alerta</th></tr></thead>
+      <tbody>${list.length ? list.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${escapeHTML(s.semana)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.gastos)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td></tr>`).join('') : '<tr><td colspan="7" class="empty-state">No hay visitas registradas.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ---------------- Vistas: Trabajador ---------------- */
+function initTrabajadorUI() {
+  el('header-user-role').innerText = 'Trabajador / Asesor JORAN';
+  const t = getTrabajador(SESSION.trabajadorId);
+  setMenu([
+    { id: 'w-nuevo', label: 'Nuevo Seguimiento', icon: 'fa-plus-circle' },
+    { id: 'w-negocios', label: 'Mis Negocios', icon: 'fa-store' },
+    { id: 'w-historial', label: 'Mis Visitas', icon: 'fa-list-check' }
+  ]);
+  CURRENT_ROLE_ROUTES = {
+    'w-nuevo': { titulo: 'Registrar Visita Semanal', render: () => renderTrabajadorNuevo(t) },
+    'w-negocios': { titulo: 'Negocios Asignados', render: () => renderTrabajadorNegocios(t) },
+    'w-historial': { titulo: 'Historial de Visitas', render: () => renderTrabajadorHistorial(t) }
+  };
+  navegar('w-nuevo', document.querySelector('.nav-link'));
+}
+
+function renderTrabajadorNuevo(t) {
+  const negocios = t ? (t.negocios || []).map(id => getCliente(id)).filter(Boolean) : DB.clientes;
+  const hoy = obtenerFechaLocal();
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Datos del Seguimiento</h3></div>
+    <div class="form-box">
+      <div class="form-grid-3">
+        <div class="field"><label>Negocio *</label>
+          <select class="form-control" id="seg-negocio">
+            ${negocios.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)}</option>`).join('')}
+          </select>
+        </div>
+        <div class="field"><label>Fecha de Visita</label><input type="date" class="form-control" id="seg-fecha" value="${hoy}"></div>
+        <div class="field"><label>Semana</label><input type="text" class="form-control" id="seg-semana" value="${semanaActualLabel()}"></div>
+      </div>
+    </div>
+    <div class="form-box">
+      <h4>Resultados Financieros de la Semana</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Ventas de la semana</label><input type="number" class="form-control" id="seg-ventas" value="0"></div>
+        <div class="field"><label>Gastos de la semana</label><input type="number" class="form-control" id="seg-gastos" value="0"></div>
+        <div class="field"><label>Utilidad estimada</label><input type="number" class="form-control" id="seg-utilidad" value="0"></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><label>Alerta / Estado del negocio</label>
+          <select class="form-control" id="seg-estado">
+            <option value="normal">🟢 Normal — Sin inconvenientes</option>
+            <option value="atencion">🟡 Atención — Disminución leve de ventas</option>
+            <option value="riesgo">🟠 Riesgo — Problemas de inventario o liquidez</option>
+            <option value="critico">🔴 Crítico — Pérdidas o riesgo de cierre</option>
+          </select>
+        </div>
+        <div class="field"><label>Compromisos del cliente</label><input type="text" class="form-control" id="seg-compromisos" placeholder="Ej: Mejorar control de caja"></div>
+      </div>
+    </div>
+    <button class="btn-main" onclick="guardarSeguimientoTrabajador()"><i class="fa-solid fa-floppy-disk"></i> Guardar Seguimiento</button>
+  </div>`;
+}
+
+function guardarSeguimientoTrabajador() {
+  const cid = Number(el('seg-negocio').value);
+  const ventas = Number(el('seg-ventas').value) || 0;
+  const gastos = Number(el('seg-gastos').value) || 0;
+  const utilidad = Number(el('seg-utilidad').value) || 0;
+  const estado = el('seg-estado').value;
+
+  DB.seguimientos.unshift({
+    id: DB.nextId.seguimiento++,
+    clienteId: cid,
+    trabajadorId: SESSION.trabajadorId || 1,
+    fecha: el('seg-fecha').value || obtenerFechaLocal(),
+    semana: el('seg-semana').value,
+    ventas, gastos, utilidad, estado,
+    compromisos: el('seg-compromisos').value.trim()
+  });
+
+  const cli = getCliente(cid);
+  if (cli) {
+    cli.estado = estado;
+    cli.resultados.ventas = ventas;
+    cli.resultados.gastos = gastos;
+    cli.resultados.utilidad = utilidad;
+  }
+
+  registrarAuditoria('Seguimiento guardado', `${cli ? cli.negocio.nombre : 'Negocio'} — ${estado}`);
+  guardarEstado();
+  mostrarNotificacion('Seguimiento guardado con éxito');
+  navegar('w-nuevo');
+}
+
+function renderTrabajadorNegocios(t) {
+  const negocios = t ? (t.negocios || []).map(id => getCliente(id)).filter(Boolean) : DB.clientes;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Negocios Asignados</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Negocio</th><th>Cliente</th><th>Ciudad</th><th>Teléfono</th><th>Estado</th></tr></thead>
+      <tbody>${negocios.length ? negocios.map(c => `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.negocio.ciudad||'-')}</td><td>${escapeHTML(c.telefono)}</td><td>${badgeEstado(c.estado)}</td></tr>`).join('') : '<tr><td colspan="5" class="empty-state">No tienes negocios asignados.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
+function renderTrabajadorHistorial(t) {
+  const hist = t ? seguimientosDeTrabajador(t.id) : DB.seguimientos;
+  return `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Visitas Realizadas</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Semana</th><th>Negocio</th><th>Ventas</th><th>Utilidad</th><th>Estado</th></tr></thead>
+      <tbody>${hist.length ? hist.map(s => `<tr><td>${fechaLarga(s.fecha)}</td><td>${escapeHTML(s.semana)}</td><td>${nombreNegocio(s.clienteId)}</td><td>${formatCOP(s.ventas)}</td><td>${formatCOP(s.utilidad)}</td><td>${badgeEstado(s.estado)}</td></tr>`).join('') : '<tr><td colspan="6" class="empty-state">No hay visitas registradas.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
+/* ---------------- Arranque de la Aplicación ---------------- */
+async function iniciarApp() {
+  cargarSesionLocal();
+  cargarCacheDB();
+  await cargarEstadoRemoto();
+  el('loading-overlay').style.display = 'none';
+
+  if (SESSION.rol) {
+    el('view-login').style.display = 'none';
+    el('view-app').style.display = 'grid';
+    el('header-user-name').innerText = SESSION.usuario || 'Usuario';
+    el('header-avatar-initials').innerText = (SESSION.usuario || 'US').slice(0,2).toUpperCase();
+    if (SESSION.rol === 'client') initClienteUI();
+    else if (SESSION.rol === 'worker') initTrabajadorUI();
+    else initAdminUI();
+  }
+}
+
+document.addEventListener('DOMContentLoaded', iniciarApp);
+</script>
+</body>
+</html>
