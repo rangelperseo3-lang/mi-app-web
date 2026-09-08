@@ -1385,8 +1385,6 @@ function guardarSeguimientoTrabajador(trabajadorId) {
   };
   DB.seguimientos.unshift(nuevo);
   const cli = getCliente(nuevo.clienteId);
-  crearNotificacion('admin',null,'Nuevo seguimiento registrado',`${nombreTrabajador(trabajadorId)} registró seguimiento en ${nombreNegocio(nuevo.clienteId)}.`,'seguimiento');
-  if(nuevo.proximaVisita) crearNotificacion('admin',null,'Próxima visita programada',`${nombreTrabajador(trabajadorId)} programó una visita para ${nombreNegocio(nuevo.clienteId)} el ${fechaLarga(nuevo.proximaVisita)}.`,'visita');
   if (cli) {
     cli.estado = nuevo.estado;
     cli.resultados.ventas = nuevo.ventas;
@@ -1439,7 +1437,6 @@ function guardarAutoasignacionNegocios(trabajadorId) {
   const sel = Array.from(el('auto-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v) && v);
   if (!sel.length) { mostrarNotificacion('Selecciona al menos un negocio para agregar', true); return; }
   sel.forEach(id => { if (!t.negocios.includes(id)) t.negocios.push(id); });
-  crearNotificacion('admin',null,'Trabajador agregó un negocio',`${t.nombre} agregó: ${sel.map(id => nombreNegocio(id)).join(', ')}.`,'asignacion');
   registrarAuditoria('Negocios auto-asignados por el trabajador', `${t.nombre} — ${sel.map(id => nombreNegocio(id)).join(', ')}`);
   closeModal();
   guardarEstado();
@@ -2074,10 +2071,7 @@ function guardarNuevoTrabajador() {
   if (!nombre) { mostrarNotificacion('Ingrese el nombre del trabajador', true); return; }
   if (!telefono) { mostrarNotificacion('Ingrese el teléfono del trabajador', true); return; }
   const sel = Array.from(el('nt-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v));
-  const nuevoTrabajador={ id: DB.nextId.trabajador++, nombre, telefono, negocios: sel };
-  DB.trabajadores.push(nuevoTrabajador);
-  crearNotificacion('worker',nuevoTrabajador.id,'Bienvenido a JORAN',`Tu cuenta de trabajador fue creada. Tienes ${sel.length} negocio${sel.length===1?'':'s'} asignado${sel.length===1?'':'s'} inicialmente.`,'sistema');
-  sel.forEach(cid=>crearNotificacion('worker',nuevoTrabajador.id,'Negocio asignado',`Se te asignó el negocio ${nombreNegocio(cid)}.`,'asignacion'));
+  DB.trabajadores.push({ id: DB.nextId.trabajador++, nombre, telefono, negocios: sel });
   registrarAuditoria('Trabajador registrado', nombre);
   closeModal();
   mostrarNotificacion('Trabajador registrado correctamente');
@@ -2116,8 +2110,7 @@ function verTrabajadorDetalle(id) {
     <div class="form-box" style="margin-bottom:0;"><h4>Seguimientos: Realizados (${seguimientosDeTrabajador(id).length}) / Pendientes (${pendientes.length})</h4>
       ${pendientes.length ? `<div class="chip-list">${pendientes.map(c => `<span class="chip" style="background:var(--warning-bg);color:var(--warning-amber);">${escapeHTML(c.negocio.nombre)}</span>`).join('')}</div>` : `<p style="font-size:.85rem;color:var(--success-green);">Todos los negocios están al día esta semana.</p>`}
     </div>
-    <div style="margin-top:18px;display:flex;justify-content:flex-end;gap:8px;flex-wrap:wrap;">
-      <button class="btn-main" onclick="abrirModalTareaTrabajador(${t.id})"><i class="fa-solid fa-list-check"></i> Enviar tarea</button>
+    <div style="margin-top:18px;text-align:right;">
       <button class="btn-danger" onclick="eliminarTrabajador(${t.id})"><i class="fa-solid fa-trash"></i> Eliminar Trabajador</button>
     </div>
   `);
@@ -2130,28 +2123,11 @@ function guardarAsignacionesTrabajador(id) {
   const t = getTrabajador(id);
   if (!t) return;
   const sel = Array.from(el('td-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v));
-  const anteriores=[...(t.negocios||[])];
-  const agregados=sel.filter(id=>!anteriores.includes(id));
-  const retirados=anteriores.filter(id=>!sel.includes(id));
   t.negocios = sel;
-  agregados.forEach(cid=>crearNotificacion('worker',t.id,'Nuevo negocio asignado',`El administrador te asignó ${nombreNegocio(cid)}.`,'asignacion'));
-  retirados.forEach(cid=>crearNotificacion('worker',t.id,'Negocio retirado',`El administrador retiró ${nombreNegocio(cid)} de tus negocios asignados.`,'asignacion'));
   registrarAuditoria('Negocios asignados actualizados', t.nombre);
   guardarEstado();
   mostrarNotificacion('Asignaciones del trabajador actualizadas correctamente');
   verTrabajadorDetalle(id);
-}
-
-function abrirModalTareaTrabajador(trabajadorId){
-  const t=getTrabajador(trabajadorId); if(!t)return;
-  openModal(`Enviar tarea — ${escapeHTML(t.nombre)}`,`<div class="field"><label>Tarea</label><textarea class="form-control" id="tarea-worker" rows=4 placeholder="Ej: Revisar inventario del negocio y enviar fotografías."></textarea></div><button class="btn-main" onclick="enviarTareaTrabajador(${t.id})"><i class="fa-solid fa-paper-plane"></i> Enviar tarea</button>`);
-}
-function enviarTareaTrabajador(trabajadorId){
-  const t=getTrabajador(trabajadorId), tarea=el('tarea-worker')?.value.trim(); if(!t)return;
-  if(!tarea){mostrarNotificacion('Escribe la tarea antes de enviarla',true);return;}
-  crearNotificacion('worker',t.id,'Nueva tarea del administrador',tarea,'tarea');
-  registrarAuditoria('Tarea enviada al trabajador',`${t.nombre} — ${tarea}`);
-  guardarEstado(); closeModal(); mostrarNotificacion('Tarea enviada al trabajador');
 }
 
 function renderAdminInversiones() {
@@ -2435,11 +2411,20 @@ function renderCfgUsuarios() {
       <h3>Usuarios de la Plataforma</h3>
       <button class="btn-main" onclick="abrirModalRegistrarUsuario()"><i class="fa-solid fa-user-plus"></i> Registrar Usuario</button>
     </div>
-    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Estos son los usuarios con acceso real al login. Cada uno inicia sesión con su nombre + rol + contraseña.</p>
+    <div class="form-box" style="margin-bottom:18px;">
+      <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;">
+        <div>
+          <h4 style="margin-bottom:5px;"><i class="fa-solid fa-shield-halved"></i> Mi contraseña de administrador</h4>
+          <p style="font-size:.78rem;color:var(--text-muted);margin:0;">Cada administrador tiene su propia contraseña. Por seguridad, las contraseñas de otros usuarios no se muestran en texto visible.</p>
+        </div>
+        <button class="btn-main" onclick="abrirModalMiPassword()"><i class="fa-solid fa-key"></i> Cambiar mi contraseña</button>
+      </div>
+    </div>
+    <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:12px;">Estos son los usuarios con acceso real al login. El administrador puede restablecer la contraseña de cualquier usuario, pero nunca verla en texto plano.</p>
     <div class="table-scroll"><table>
-      <thead><tr><th>Nombre</th><th>Rol</th><th>Entidad Asociada</th><th>Estado</th><th></th></tr></thead>
+      <thead><tr><th>Nombre</th><th>Rol</th><th>Entidad Asociada</th><th>Contraseña</th><th>Estado</th><th></th></tr></thead>
       <tbody>
-        ${DB.usuarios.length ? DB.usuarios.map(u => `<tr><td><b>${escapeHTML(u.nombre)}</b></td><td>${nombreRol(u.rol)}</td><td>${escapeHTML(u.entidadNombre || '-')}</td><td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td><td style="display:flex;gap:6px;"><button class="btn-secondary" onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button><button class="btn-secondary" onclick="abrirModalCambiarPassword(${u.id})">Cambiar clave</button><button class="btn-danger" onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="5" class="empty-state">Aún no hay usuarios registrados. Sin usuarios de rol Cliente o Trabajador, nadie más podrá iniciar sesión con esos roles.</td></tr>`}
+        ${DB.usuarios.length ? DB.usuarios.map(u => `<tr><td><b>${escapeHTML(u.nombre)}</b></td><td>${nombreRol(u.rol)}</td><td>${escapeHTML(u.entidadNombre || '-')}</td><td><span class="badge badge-green"><i class="fa-solid fa-lock"></i> Configurada</span></td><td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td><td style="display:flex;gap:6px;flex-wrap:wrap;"><button class="btn-secondary" onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button><button class="btn-secondary" onclick="abrirModalCambiarPassword(${u.id})">Restablecer clave</button><button class="btn-danger" onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button></td></tr>`).join('') : `<tr><td colspan="6" class="empty-state">Aún no hay usuarios registrados. Sin usuarios de rol Cliente o Trabajador, nadie más podrá iniciar sesión con esos roles.</td></tr>`}
       </tbody>
     </table></div>
   </div>`;
@@ -2462,7 +2447,7 @@ function abrirModalRegistrarUsuario() {
         <label>Negocio asociado</label>
         <select class="form-control" id="nu-entidad">${DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') || '<option value="">No hay clientes registrados</option>'}</select>
       </div>
-      <div class="field"><label>Contraseña de acceso <span class="req">*</span></label><input type="password" class="form-control" id="nu-password" placeholder="Mínimo 4 caracteres"></div>
+      <div class="field"><label>Contraseña de acceso <span class="req">*</span></label><input type="password" class="form-control" id="nu-password" placeholder="Mínimo 8 caracteres"></div>
     </div>
     <button class="btn-main" onclick="guardarNuevoUsuario()"><i class="fa-solid fa-floppy-disk"></i> Registrar Usuario</button>
   `);
@@ -2488,7 +2473,7 @@ function guardarNuevoUsuario() {
   const nombre = el('nu-nombre').value.trim();
   const password = el('nu-password').value;
   if (!nombre) { mostrarNotificacion('Ingrese el nombre del usuario', true); return; }
-  if (!password || password.length < 4) { mostrarNotificacion('La contraseña debe tener al menos 4 caracteres', true); return; }
+  if (!password || password.length < 8) { mostrarNotificacion('La contraseña debe tener al menos 8 caracteres', true); return; }
 
   let entidadId = null, entidadNombre = '-';
   if (rol === 'client') {
@@ -2511,11 +2496,44 @@ function guardarNuevoUsuario() {
   setTimeout(() => { const btn = document.querySelectorAll('#content-container .tab-btn')[1]; if (btn) btn.click(); }, 30);
 }
 
+function abrirModalMiPassword() {
+  if (SESSION.rol !== 'admin' || !SESSION.usuarioId) {
+    mostrarNotificacion('Solo un administrador autenticado puede cambiar su contraseña.', true);
+    return;
+  }
+  const u = DB.usuarios.find(x => x.id === SESSION.usuarioId && x.rol === 'admin');
+  if (!u) { mostrarNotificacion('No se encontró la cuenta de administrador actual.', true); return; }
+  openModal('Cambiar mi contraseña de administrador', `
+    <div class="field" style="margin-bottom:14px;"><label>Contraseña actual</label><input type="password" class="form-control" id="mi-pass-actual" autocomplete="current-password"></div>
+    <div class="field" style="margin-bottom:14px;"><label>Nueva contraseña</label><input type="password" class="form-control" id="mi-pass-nueva" autocomplete="new-password" placeholder="Mínimo 8 caracteres"></div>
+    <div class="field" style="margin-bottom:18px;"><label>Confirmar nueva contraseña</label><input type="password" class="form-control" id="mi-pass-confirmar" autocomplete="new-password"></div>
+    <p style="font-size:.76rem;color:var(--text-muted);margin-bottom:16px;"><i class="fa-solid fa-circle-info"></i> La nueva contraseña será necesaria la próxima vez que inicies sesión.</p>
+    <button class="btn-main" onclick="guardarMiPassword()"><i class="fa-solid fa-floppy-disk"></i> Guardar contraseña</button>
+  `);
+}
+
+function guardarMiPassword() {
+  const u = DB.usuarios.find(x => x.id === SESSION.usuarioId && x.rol === 'admin');
+  if (!u) return;
+  const actual = el('mi-pass-actual').value;
+  const nueva = el('mi-pass-nueva').value;
+  const confirmar = el('mi-pass-confirmar').value;
+  if (actual !== u.password) { mostrarNotificacion('La contraseña actual no es correcta.', true); return; }
+  if (!nueva || nueva.length < 8) { mostrarNotificacion('La nueva contraseña debe tener al menos 8 caracteres.', true); return; }
+  if (nueva !== confirmar) { mostrarNotificacion('Las nuevas contraseñas no coinciden.', true); return; }
+  if (nueva === actual) { mostrarNotificacion('La nueva contraseña debe ser diferente a la actual.', true); return; }
+  u.password = nueva;
+  registrarAuditoria('Administrador cambió su propia contraseña', u.nombre);
+  guardarEstado();
+  closeModal();
+  mostrarNotificacion('Tu contraseña de administrador fue actualizada correctamente.');
+}
+
 function abrirModalCambiarPassword(id) {
   const u = DB.usuarios.find(x => x.id === id);
   if (!u) return;
   openModal(`Cambiar contraseña — ${escapeHTML(u.nombre)}`, `
-    <div class="field" style="margin-bottom:14px;"><label>Nueva contraseña</label><input type="password" class="form-control" id="cp-password" placeholder="Mínimo 4 caracteres"></div>
+    <div class="field" style="margin-bottom:14px;"><label>Nueva contraseña</label><input type="password" class="form-control" id="cp-password" placeholder="Mínimo 8 caracteres"></div>
     <button class="btn-main" onclick="guardarCambioPassword(${id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Nueva Contraseña</button>
   `);
 }
@@ -2523,7 +2541,7 @@ function guardarCambioPassword(id) {
   const u = DB.usuarios.find(x => x.id === id);
   if (!u) return;
   const password = el('cp-password').value;
-  if (!password || password.length < 4) { mostrarNotificacion('La contraseña debe tener al menos 4 caracteres', true); return; }
+  if (!password || password.length < 8) { mostrarNotificacion('La contraseña debe tener al menos 8 caracteres', true); return; }
   u.password = password;
   registrarAuditoria('Contraseña restablecida', u.nombre);
   guardarEstado();
@@ -2789,22 +2807,7 @@ function asegurarDatosNuevos(){
 }
 function crearNotificacion(rol,entidadId,titulo,mensaje,tipo){asegurarDatosNuevos();DB.notificaciones.unshift({id:DB.nextId.notificacion++,rol,entidadId,titulo,mensaje,tipo:tipo||'info',leida:false,fecha:new Date().toISOString().slice(0,10)});}
 function notificacionesDeSesion(){return DB.notificaciones.filter(n=>n.rol===SESSION.rol&&(n.entidadId==null||n.entidadId===(SESSION.rol==='client'?SESSION.clienteId:SESSION.trabajadorId))).sort((a,b)=>b.id-a.id);}
-function limpiarNotificacionesSesion(){
-  const propias=notificacionesDeSesion();
-  if(!propias.length){mostrarNotificacion('No tienes notificaciones para limpiar');return;}
-  confirmarAccion(`¿Seguro que quieres eliminar tus ${propias.length} notificación${propias.length===1?'':'es'}? Esta acción no se puede deshacer.`,()=>{
-    const ids=new Set(propias.map(n=>n.id));
-    DB.notificaciones=DB.notificaciones.filter(n=>!ids.has(n.id));
-    guardarEstado();
-    mostrarNotificacion('Notificaciones eliminadas correctamente');
-    if(CURRENT_ROLE_ROUTES && CURRENT_ROLE_ROUTES[SESSION.vista]) navegar(SESSION.vista);
-  });
-}
-function marcarNotificacionLeida(id){const n=DB.notificaciones.find(x=>x.id===id);if(n){n.leida=true;guardarEstado();}}
-function renderNotificacionesSesion(){
-  const l=notificacionesDeSesion().slice(0,50), sinLeer=l.filter(x=>!x.leida).length;
-  return `<div class="card-table"><div class="card-table-header"><div><h3>Notificaciones</h3><span class="subtitle">${sinLeer} sin leer</span></div><button class="btn-danger" onclick="limpiarNotificacionesSesion()"><i class="fa-solid fa-trash"></i> Limpiar</button></div>${l.length?l.map(n=>`<div class="risk-list-item" style="cursor:pointer;${n.leida?'opacity:.7;':''}" onclick="marcarNotificacionLeida(${n.id})"><div><b>${escapeHTML(n.titulo)}</b><p style="color:var(--text-muted);margin-top:4px;">${escapeHTML(n.mensaje)}</p></div><small>${fechaLarga(n.fecha)}${n.leida?'':' • Nueva'}</small></div>`).join(''):'<div class="empty-state">No tienes notificaciones.</div>'}</div>`;
-}
+function renderNotificacionesSesion(){const l=notificacionesDeSesion().slice(0,20);return `<div class="card-table"><div class="card-table-header"><h3>Notificaciones</h3><span class="subtitle">${l.filter(x=>!x.leida).length} sin leer</span></div>${l.length?l.map(n=>`<div class="risk-list-item"><div><b>${escapeHTML(n.titulo)}</b><p style="color:var(--text-muted);margin-top:4px;">${escapeHTML(n.mensaje)}</p></div><small>${fechaLarga(n.fecha)}</small></div>`).join(''):'<div class="empty-state">No tienes notificaciones.</div>'}</div>`;}
 function abrirModalCrearCuenta(){openModal('Crear cuenta de cliente',`<p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;">Tu cuenta queda vinculada a una solicitud de inversión que JORAN revisará.</p><div class="form-grid-2"><div class="field"><label>Nombre completo *</label><input class="form-control" id="cc-nombre"></div><div class="field"><label>Documento</label><input class="form-control" id="cc-documento"></div></div><div class="form-grid-2"><div class="field"><label>Teléfono *</label><input class="form-control" id="cc-telefono"></div><div class="field"><label>Correo *</label><input type="email" class="form-control" id="cc-correo"></div></div><div class="form-grid-2"><div class="field"><label>Negocio *</label><input class="form-control" id="cc-negocio"></div><div class="field"><label>Tipo</label><select class="form-control" id="cc-tipo">${DB.categorias.map(x=>`<option>${escapeHTML(x)}</option>`).join('')}</select></div></div><div class="form-grid-2"><div class="field"><label>Ciudad</label><input class="form-control" id="cc-ciudad"></div><div class="field"><label>Dirección</label><input class="form-control" id="cc-direccion"></div></div><div class="form-grid-2"><div class="field"><label>Monto solicitado *</label><input type="number" min="1" class="form-control" id="cc-monto"></div><div class="field"><label>Destino *</label><input class="form-control" id="cc-destino"></div></div><div class="field"><label>Contraseña (mínimo 8 caracteres) *</label><input type="password" minlength="8" class="form-control" id="cc-password"></div><button class="btn-main" onclick="crearCuentaCliente()">Crear cuenta y solicitar inversión</button>`);}
 function crearCuentaCliente(){asegurarDatosNuevos();const nombre=el('cc-nombre').value.trim(),tel=el('cc-telefono').value.trim(),correo=el('cc-correo').value.trim(),neg=el('cc-negocio').value.trim(),monto=Number(el('cc-monto').value)||0,dest=el('cc-destino').value.trim(),pass=el('cc-password').value;if(!nombre||!tel||!correo||!neg||monto<=0||!dest||pass.length<8){mostrarNotificacion('Completa los campos obligatorios y usa una contraseña de mínimo 8 caracteres',true);return;}if(DB.usuarios.some(u=>u.rol==='client'&&u.nombre.toLowerCase()===nombre.toLowerCase())){mostrarNotificacion('Ya existe una cuenta cliente con ese nombre',true);return;}const id=DB.nextId.cliente++;DB.clientes.push({id,nombre,documento:el('cc-documento').value.trim(),telefono:tel,correo,direccion:'',negocio:{nombre:neg,tipo:el('cc-tipo').value,direccion:el('cc-direccion').value.trim(),ciudad:el('cc-ciudad').value.trim(),fechaInicio:'',descripcion:'',empleados:1},inversion:{solicitado:monto,aprobado:0,recibido:0,fecha:'',tipo:'Solicitud inicial',participacion:0,destino:dest,estado:'Pendiente',rentabilidad:0},resultados:{ventas:0,gastos:0,utilidad:0,inventario:0,deudas:0,metas:0},estado:'normal'});DB.usuarios.push({id:DB.nextId.usuario++,nombre,rol:'client',password:pass,activo:true,entidadId:id,entidadNombre:neg});DB.solicitudesInversion.unshift({id:DB.nextId.solicitudInversion++,clienteId:id,clienteNombre:nombre,negocioNombre:neg,montoSolicitado:monto,destino:dest,tipo:'Solicitud inicial',estado:'Pendiente',comentario:'',fecha:new Date().toISOString().slice(0,10)});crearNotificacion('admin',null,'Nueva solicitud de inversión',`${neg} solicitó ${formatCOP(monto)}.`,'solicitud');registrarAuditoria('Cuenta cliente creada',`${nombre} — ${neg}`);guardarEstado();closeModal();mostrarNotificacion('Cuenta creada. La solicitud quedó pendiente de revisión.');}
 function nombreEstadoSolicitud(s){const m={Pendiente:'badge-amber',EnRevision:'badge-amber',Aprobada:'badge-green',Rechazada:'badge-red'};return `<span class="badge ${m[s]||'badge-amber'}">${escapeHTML(s)}</span>`;}
@@ -2820,24 +2823,11 @@ function adminCapitalStats(){asegurarDatosNuevos();const invertido=DB.clientes.r
 function renderAdminDashboard(){const st=adminStats(),c=adminCapitalStats(),pend=DB.pagos.filter(p=>p.estado==='Pendiente').reduce((a,p)=>a+p.monto,0);return `<div class="metrics-row">${metricCard('fa-coins','#e6ecf7','var(--navy)','Capital Total',formatCOP(DB.capital.total))}${metricCard('fa-wallet','var(--success-bg)','var(--success-green)','Capital Invertido',formatCOP(c.invertido))}${metricCard('fa-piggy-bank','var(--warning-bg)','var(--warning-amber)','Capital Disponible',formatCOP(c.disp))}${metricCard('fa-rotate-left','var(--success-bg)','var(--success-green)','Capital Recuperado',formatCOP(c.recuperado))}</div><div class="metrics-row">${metricCard('fa-chart-line','var(--success-bg)','var(--success-green)','Ganancias JORAN',formatCOP(c.gan))}${metricCard('fa-store','#e6ecf7','var(--navy)','Negocios',st.negociosActivos)}${metricCard('fa-triangle-exclamation','var(--risk-orange-bg)','var(--risk-orange)','En Riesgo',st.negociosRiesgo)}${metricCard('fa-clock','var(--danger-bg)','var(--danger-red)','Pagos Pendientes',formatCOP(pend))}</div><div class="card-table"><div class="card-table-header"><h3>Indicadores</h3></div><div class="form-grid-4">${field('Negocios activos',st.negociosActivos)}${field('Negocios terminados',DB.clientes.filter(x=>x.inversion?.estado==='Terminada').length)}${field('Seguimientos pendientes',st.seguimientosPendientes)}${field('Pérdidas',formatCOP(DB.clientes.reduce((a,x)=>a+Math.min(0,x.resultados?.utilidad||0),0)))}</div></div>${renderNotificacionesSesion()}`;}
 function renderAdminSolicitudes(){const l=DB.solicitudesInversion.slice().sort((a,b)=>b.id-a.id);return `<div class="card-table"><div class="card-table-header"><h3>Solicitudes de inversión</h3></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Cliente</th><th>Negocio</th><th>Monto</th><th>Destino</th><th>Estado</th><th></th></tr></thead><tbody>${l.length?l.map(s=>`<tr><td>${fechaLarga(s.fecha)}</td><td>${escapeHTML(s.clienteNombre)}</td><td>${escapeHTML(s.negocioNombre)}</td><td>${formatCOP(s.montoSolicitado)}</td><td>${escapeHTML(s.destino)}</td><td>${nombreEstadoSolicitud(s.estado)}</td><td>${['Pendiente','EnRevision'].includes(s.estado)?`<button class="btn-main" onclick="abrirModalResolverSolicitud(${s.id})">Revisar</button>`:'-'}</td></tr>`).join(''):'<tr><td colspan="7" class="empty-state">No hay solicitudes.</td></tr>'}</tbody></table></div></div>`;}
 function abrirModalResolverSolicitud(id){const s=DB.solicitudesInversion.find(x=>x.id===id);if(!s)return;openModal('Resolver solicitud',`<p><b>${escapeHTML(s.negocioNombre)}</b> — ${formatCOP(s.montoSolicitado)}</p><div class="field"><label>Decisión</label><select class="form-control" id="rs-estado"><option>Aprobada</option><option>Rechazada</option><option>EnRevision</option></select></div><div class="field"><label>Comentario</label><textarea class="form-control" id="rs-comentario" rows="3"></textarea></div><button class="btn-main" onclick="resolverSolicitud(${id})">Guardar</button>`);}
-function resolverSolicitud(id){const s=DB.solicitudesInversion.find(x=>x.id===id);if(!s)return;const est=el('rs-estado').value,com=el('rs-comentario').value.trim(),c=getCliente(s.clienteId);s.estado=est;s.comentario=com;s.fechaRespuesta=new Date().toISOString().slice(0,10);if(c){c.inversion.estado=est==='Aprobada'?'Aprobada':est==='Rechazada'?'Rechazada':'En revisión';if(est==='Aprobada'){c.inversion.aprobado=s.montoSolicitado;c.inversion.recibido=0;c.inversion.fecha=new Date().toISOString().slice(0,10);}}crearNotificacion('client',s.clienteId,'Actualización de solicitud',`Tu solicitud está ${est.toLowerCase()}. ${com}`,'solicitud');
-  const trabajadorAsignado=DB.trabajadores.find(t=>t.negocios?.includes(s.clienteId));
-  if(trabajadorAsignado) crearNotificacion('worker',trabajadorAsignado.id,'Solicitud de inversión actualizada',`La solicitud de ${nombreNegocio(s.clienteId)} fue marcada como ${est.toLowerCase()}.`,'solicitud');
-  registrarAuditoria('Solicitud de inversión resuelta',`${s.negocioNombre} — ${est}`);guardarEstado();closeModal();navegar('a-solicitudes');}
+function resolverSolicitud(id){const s=DB.solicitudesInversion.find(x=>x.id===id);if(!s)return;const est=el('rs-estado').value,com=el('rs-comentario').value.trim(),c=getCliente(s.clienteId);s.estado=est;s.comentario=com;s.fechaRespuesta=new Date().toISOString().slice(0,10);if(c){c.inversion.estado=est==='Aprobada'?'Aprobada':est==='Rechazada'?'Rechazada':'En revisión';if(est==='Aprobada'){c.inversion.aprobado=s.montoSolicitado;c.inversion.recibido=0;c.inversion.fecha=new Date().toISOString().slice(0,10);}}crearNotificacion('client',s.clienteId,'Actualización de solicitud',`Tu solicitud está ${est.toLowerCase()}. ${com}`,'solicitud');registrarAuditoria('Solicitud de inversión resuelta',`${s.negocioNombre} — ${est}`);guardarEstado();closeModal();navegar('a-solicitudes');}
 function renderAdminPagos(){const l=DB.pagos.slice().sort((a,b)=>b.fecha.localeCompare(a.fecha));return `<div class="card-table"><div class="card-table-header"><h3>Pagos y cartera</h3><button class="btn-main" onclick="abrirModalRegistrarPago()">Registrar pago</button></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Negocio</th><th>Concepto</th><th>Tipo</th><th>Monto</th><th>Estado</th></tr></thead><tbody>${l.length?l.map(p=>`<tr><td>${fechaLarga(p.fecha)}</td><td>${nombreNegocio(p.clienteId)}</td><td>${escapeHTML(p.concepto)}</td><td>${escapeHTML(p.tipo)}</td><td>${formatCOP(p.monto)}</td><td>${escapeHTML(p.estado)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay pagos.</td></tr>'}</tbody></table></div></div>`;}
 function abrirModalRegistrarPago(){openModal('Registrar pago',`<div class="field"><label>Negocio</label><select class="form-control" id="pg-cliente">${DB.clientes.map(c=>`<option value="${c.id}">${escapeHTML(c.negocio.nombre)}</option>`).join('')}</select></div><div class="form-grid-2"><div class="field"><label>Monto *</label><input type="number" min="1" class="form-control" id="pg-monto"></div><div class="field"><label>Fecha</label><input type="date" class="form-control" id="pg-fecha" value="${new Date().toISOString().slice(0,10)}"></div></div><div class="form-grid-2"><div class="field"><label>Tipo</label><select class="form-control" id="pg-tipo"><option value="recuperacion">Recuperación</option><option value="ganancia">Ganancia</option><option value="otro">Otro</option></select></div><div class="field"><label>Estado</label><select class="form-control" id="pg-estado"><option>Confirmado</option><option>Pendiente</option></select></div></div><div class="field"><label>Concepto</label><input class="form-control" id="pg-concepto" value="Pago de inversión"></div><button class="btn-main" onclick="guardarPagoAdmin()">Guardar pago</button>`);}
 function guardarPagoAdmin(){const cid=Number(el('pg-cliente').value),m=Number(el('pg-monto').value)||0;if(m<=0){mostrarNotificacion('Monto inválido',true);return;}const c=getCliente(cid);DB.pagos.unshift({id:DB.nextId.pago++,clienteId:cid,monto:m,fecha:el('pg-fecha').value,tipo:el('pg-tipo').value,estado:el('pg-estado').value,concepto:el('pg-concepto').value.trim()||'Pago'});crearNotificacion('client',cid,'Nuevo pago registrado',`Se registró ${formatCOP(m)}.`,'pago');registrarAuditoria('Pago registrado',`${c?c.negocio.nombre:'-'} — ${formatCOP(m)}`);guardarEstado();closeModal();navegar('a-pagos');}
-function atenderAlertaAdmin(id){
-  const a=DB.alertas.find(x=>x.id===id); if(!a) return;
-  if(a.estado==='Atendida'){mostrarNotificacion('Esta alerta ya está atendida');return;}
-  confirmarAccion(`¿Marcar como atendida la alerta de ${nombreNegocio(a.clienteId)}?`,()=>{
-    a.estado='Atendida'; a.fechaAtendida=new Date().toISOString().slice(0,10);
-    crearNotificacion('worker',a.trabajadorId,'Alerta atendida',`El administrador marcó como atendida la alerta de ${nombreNegocio(a.clienteId)}.`,'alerta');
-    registrarAuditoria('Alerta atendida',`${nombreNegocio(a.clienteId)} — ${a.motivo}`);
-    guardarEstado(); navegar('a-alertas');
-  });
-}
-function renderAdminAlertas(){const l=DB.alertas.slice().sort((a,b)=>b.id-a.id);return `<div class="card-table"><div class="card-table-header"><h3>Centro de Alertas</h3></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Nivel</th><th>Motivo</th><th>Estado</th><th>Acción</th></tr></thead><tbody>${l.length?l.map(a=>`<tr><td>${fechaLarga(a.fecha)}</td><td>${nombreNegocio(a.clienteId)}</td><td>${nombreTrabajador(a.trabajadorId)}</td><td>${badgeEstado(a.nivel)}</td><td>${escapeHTML(a.motivo)}</td><td>${escapeHTML(a.estado)}</td><td>${a.estado==='Atendida'?'<span class="badge badge-green">Atendida</span>':`<button class="btn-main" onclick="atenderAlertaAdmin(${a.id})">Atender</button>`}</td></tr>`).join(''):'<tr><td colspan="7" class="empty-state">No hay alertas.</td></tr>'}</tbody></table></div></div>`;}
+function renderAdminAlertas(){const l=DB.alertas.slice().sort((a,b)=>b.id-a.id);return `<div class="card-table"><div class="card-table-header"><h3>Centro de Alertas</h3></div><div class="table-scroll"><table><thead><tr><th>Fecha</th><th>Negocio</th><th>Trabajador</th><th>Nivel</th><th>Motivo</th><th>Estado</th></tr></thead><tbody>${l.length?l.map(a=>`<tr><td>${fechaLarga(a.fecha)}</td><td>${nombreNegocio(a.clienteId)}</td><td>${nombreTrabajador(a.trabajadorId)}</td><td>${badgeEstado(a.nivel)}</td><td>${escapeHTML(a.motivo)}</td><td>${escapeHTML(a.estado)}</td></tr>`).join(''):'<tr><td colspan="6" class="empty-state">No hay alertas.</td></tr>'}</tbody></table></div></div>`;}
 /* Añadir acceso rápido a alertas desde los negocios del trabajador. */
 asegurarDatosNuevos();
 </script>
