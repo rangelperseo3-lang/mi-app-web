@@ -1397,17 +1397,68 @@ function renderTrabajadorNegocios(t) {
   const negocios = t.negocios.map(id => getCliente(id)).filter(Boolean);
   return `
   <div class="card-table">
-    <div class="card-table-header"><h3>Negocios Asignados a mi Cargo</h3></div>
+    <div class="card-table-header">
+      <h3>Negocios Asignados a mi Cargo</h3>
+      <button class="btn-main" onclick="abrirModalAutoasignarNegocio(${t.id})"><i class="fa-solid fa-plus"></i> Agregar cliente existente</button>
+    </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Negocio</th><th>Titular</th><th>Teléfono</th><th>Ciudad</th><th>Estado</th><th>Último Seguimiento</th><th>Acción</th></tr></thead>
       <tbody>
-        ${negocios.map(c => {
+        ${negocios.length ? negocios.map(c => {
           const u = ultimoSeguimiento(c.id);
-          return `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.telefono)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${badgeEstado(c.estado)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td><td><button class="btn-main" onclick="navegar('w-inicio'); setTimeout(() => { if(document.getElementById('seg-negocio')) { document.getElementById('seg-negocio').value=${c.id}; actualizarTelefonoClienteSeg(); } }, 50);">Reportar</button></td></tr>`;
-        }).join('')}
+          return `<tr><td><b>${escapeHTML(c.negocio.nombre)}</b></td><td>${escapeHTML(c.nombre)}</td><td>${escapeHTML(c.telefono)}</td><td>${escapeHTML(c.negocio.ciudad)}</td><td>${badgeEstado(c.estado)}</td><td>${u ? fechaLarga(u.fecha) : 'Sin registros'}</td><td style="display:flex;gap:6px;"><button class="btn-main" onclick="navegar('w-inicio'); setTimeout(() => { if(document.getElementById('seg-negocio')) { document.getElementById('seg-negocio').value=${c.id}; actualizarTelefonoClienteSeg(); } }, 50);">Reportar</button><button class="btn-secondary" onclick="quitarNegocioDeTrabajador(${t.id},${c.id})" title="Quitar de mis negocios"><i class="fa-solid fa-xmark"></i></button></td></tr>`;
+        }).join('') : `<tr><td colspan="7" class="empty-state">Aún no tienes negocios asignados. Usa "Agregar cliente existente" para tomar uno a tu cargo.</td></tr>`}
       </tbody>
     </table></div>
   </div>`;
+}
+
+/* Permite al propio trabajador tomar a su cargo un cliente/negocio que ya
+   existe en el sistema (registrado previamente por un administrador), sin
+   necesidad de que el administrador edite su ficha. Solo puede elegir entre
+   negocios que todavía no tiene asignados. */
+function abrirModalAutoasignarNegocio(trabajadorId) {
+  const t = getTrabajador(trabajadorId);
+  if (!t) return;
+  const disponibles = DB.clientes.filter(c => !t.negocios.includes(c.id));
+  openModal('Agregar Cliente Existente a Mi Cargo', `
+    <p style="font-size:.85rem;color:var(--text-muted);margin-bottom:14px;">Selecciona uno o varios negocios ya registrados en el sistema para agregarlos a tus negocios asignados.</p>
+    <div class="field" style="margin-bottom:16px;">
+      <label>Negocios disponibles</label>
+      <select class="form-control" id="auto-negocios" multiple size="8" ${disponibles.length ? '' : 'disabled'}>
+        ${disponibles.length ? disponibles.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') : '<option value="">No hay negocios disponibles para agregar</option>'}
+      </select>
+    </div>
+    <button class="btn-main" onclick="guardarAutoasignacionNegocios(${trabajadorId})" ${disponibles.length ? '' : 'disabled'}><i class="fa-solid fa-floppy-disk"></i> Agregar a Mis Negocios</button>
+  `);
+}
+
+function guardarAutoasignacionNegocios(trabajadorId) {
+  const t = getTrabajador(trabajadorId);
+  if (!t) return;
+  const sel = Array.from(el('auto-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v) && v);
+  if (!sel.length) { mostrarNotificacion('Selecciona al menos un negocio para agregar', true); return; }
+  sel.forEach(id => { if (!t.negocios.includes(id)) t.negocios.push(id); });
+  registrarAuditoria('Negocios auto-asignados por el trabajador', `${t.nombre} — ${sel.map(id => nombreNegocio(id)).join(', ')}`);
+  closeModal();
+  guardarEstado();
+  mostrarNotificacion('Negocio(s) agregado(s) a tu cargo correctamente');
+  navegar('w-negocios');
+}
+
+/* Permite al trabajador quitarse de encima un negocio que ya no le
+   corresponde (por ejemplo, si fue reasignado). El historial de
+   seguimientos que ya hizo para ese negocio se conserva. */
+function quitarNegocioDeTrabajador(trabajadorId, clienteId) {
+  const t = getTrabajador(trabajadorId);
+  if (!t) return;
+  confirmarAccion(`¿Quitar "${nombreNegocio(clienteId)}" de tus negocios asignados? Podrás volver a agregarlo después si es necesario.`, () => {
+    t.negocios = t.negocios.filter(id => id !== clienteId);
+    registrarAuditoria('Negocio removido por el trabajador', `${t.nombre} — ${nombreNegocio(clienteId)}`);
+    guardarEstado();
+    mostrarNotificacion('Negocio removido de tu cargo');
+    navegar('w-negocios');
+  });
 }
 
 function renderTrabajadorSeguimientos(t) {
@@ -1443,11 +1494,21 @@ function renderTrabajadorPerfil(t) {
   <div class="card-table">
     <div class="card-table-header"><h3>Mi Perfil</h3></div>
     <div class="form-grid-3">
-      ${field('Nombre', t.nombre)}
-      ${field('Teléfono', t.telefono)}
-      ${field('Negocios asignados', t.negocios.length)}
+      <div class="field"><label>Nombre</label><input class="form-control" value="${escapeHTML(t.nombre)}" disabled></div>
+      <div class="field"><label>Teléfono</label><input class="form-control" id="wperfil-telefono" value="${escapeHTML(t.telefono)}"></div>
+      <div class="field"><label>Negocios asignados</label><input class="form-control" value="${t.negocios.length}" disabled></div>
     </div>
+    <button class="btn-main" onclick="guardarPerfilTrabajador(${t.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Cambios</button>
   </div>`;
+}
+
+function guardarPerfilTrabajador(id) {
+  const t = getTrabajador(id);
+  if (!t) return;
+  t.telefono = el('wperfil-telefono').value.trim();
+  registrarAuditoria('Perfil de trabajador actualizado', t.nombre);
+  guardarEstado();
+  mostrarNotificacion('Perfil actualizado correctamente');
 }
 
 /* ---------------- Detalle de seguimiento (modal) ---------------- */
@@ -2034,8 +2095,13 @@ function verTrabajadorDetalle(id) {
   const pendientes = negocios.filter(c => !DB.seguimientos.some(s => s.clienteId === c.id && esMismaSemanaISO(s.fecha, refSemana)));
   openModal(`${escapeHTML(t.nombre)} — Trabajador de Campo`, `
     <div class="form-grid-2">${field('Teléfono', t.telefono)}${field('Negocios asignados', negocios.length)}</div>
-    <div class="form-box"><h4>Negocios Asignados</h4>
-      <div class="chip-list">${negocios.map(c => `<span class="chip">${escapeHTML(c.negocio.nombre)}</span>`).join('') || '<span class="chip">Sin negocios asignados</span>'}</div>
+    <div class="form-box">
+      <h4>Negocios Asignados (editable)</h4>
+      <p style="font-size:.76rem;color:var(--text-muted);margin-bottom:10px;">Marca o desmarca clientes ya registrados en el sistema para asignarlos o quitarlos de este trabajador.</p>
+      <select class="form-control" id="td-negocios" multiple size="8" ${DB.clientes.length ? '' : 'disabled'}>
+        ${DB.clientes.length ? DB.clientes.map(c => `<option value="${c.id}" ${t.negocios.includes(c.id) ? 'selected' : ''}>${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('') : '<option value="">No hay clientes registrados</option>'}
+      </select>
+      <button class="btn-main" style="margin-top:10px;" onclick="guardarAsignacionesTrabajador(${t.id})" ${DB.clientes.length ? '' : 'disabled'}><i class="fa-solid fa-floppy-disk"></i> Guardar Asignaciones</button>
     </div>
     <div class="form-box" style="margin-bottom:0;"><h4>Seguimientos: Realizados (${seguimientosDeTrabajador(id).length}) / Pendientes (${pendientes.length})</h4>
       ${pendientes.length ? `<div class="chip-list">${pendientes.map(c => `<span class="chip" style="background:var(--warning-bg);color:var(--warning-amber);">${escapeHTML(c.negocio.nombre)}</span>`).join('')}</div>` : `<p style="font-size:.85rem;color:var(--success-green);">Todos los negocios están al día esta semana.</p>`}
@@ -2044,6 +2110,20 @@ function verTrabajadorDetalle(id) {
       <button class="btn-danger" onclick="eliminarTrabajador(${t.id})"><i class="fa-solid fa-trash"></i> Eliminar Trabajador</button>
     </div>
   `);
+}
+
+/* Guarda la lista completa de negocios asignados a un trabajador desde la
+   ficha del administrador. Permite tanto agregar clientes ya existentes
+   como quitar los que ya no correspondan, en una sola acción. */
+function guardarAsignacionesTrabajador(id) {
+  const t = getTrabajador(id);
+  if (!t) return;
+  const sel = Array.from(el('td-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v));
+  t.negocios = sel;
+  registrarAuditoria('Negocios asignados actualizados', t.nombre);
+  guardarEstado();
+  mostrarNotificacion('Asignaciones del trabajador actualizadas correctamente');
+  verTrabajadorDetalle(id);
 }
 
 function renderAdminInversiones() {
