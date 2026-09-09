@@ -109,7 +109,10 @@ tr:hover td{background:#fbfbfd;}
 .btn-main:disabled{opacity:.5;cursor:not-allowed;}
 .btn-secondary{background:#eef1f5;color:#334155;border:none;padding:7px 13px;border-radius:7px;font-weight:600;cursor:pointer;font-size:.78rem;display:inline-flex;align-items:center;gap:5px;}
 .btn-secondary:hover{background:#e2e8f0;}
+.btn-secondary:disabled{opacity:.45;cursor:not-allowed;}
+.btn-secondary:disabled:hover{background:#eef1f5;}
 .btn-danger{background:var(--danger-bg);color:var(--danger-red);border:none;padding:7px 13px;border-radius:7px;font-weight:700;cursor:pointer;font-size:.78rem;}
+.btn-danger:disabled{opacity:.4;cursor:not-allowed;}
 
 .form-grid-2{display:grid;grid-template-columns:1fr 1fr;gap:15px;}
 .form-grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:15px;margin-bottom:15px;}
