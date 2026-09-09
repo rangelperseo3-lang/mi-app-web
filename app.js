@@ -1051,7 +1051,7 @@ function renderTrabajadorInicio(t) {
   resetEvidenciasTemp();
 
   if (!negocios.length) {
-    return `<div class="card-table"><div class="empty-state">No tienes negocios asignados. Asigna negocios en "Mis Negocios" o contacta al administrador.</div></div>`;
+    return `<div class="card-table"><div class="empty-state">No tienes negocios asignados. Contacta al administrador para que te asigne uno.</div></div>`;
   }
 
   return `
@@ -1321,7 +1321,7 @@ function renderTrabajadorNegocios(t) {
   <div class="card-table">
     <div class="card-table-header">
       <h3>Mis Negocios Asignados</h3>
-      <button class="btn-main" onclick="abrirModalAutoasignarNegocio(${t.id})"><i class="fa-solid fa-plus"></i> Asignarme otro negocio</button>
+      <span class="subtitle">La asignación de negocios la gestiona el Administrador.</span>
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Negocio</th><th>Cliente</th><th>Teléfono</th><th>Dirección</th><th>Estado</th><th>Último Seguimiento</th><th>Acción</th></tr></thead>
@@ -1338,38 +1338,10 @@ function renderTrabajadorNegocios(t) {
             <td>${u ? fechaLarga(u.fecha) : 'Sin visitas'} ${alDia ? '<span class="badge badge-green" style="margin-left:4px;">Al día</span>' : '<span class="badge badge-amber" style="margin-left:4px;">Pendiente</span>'}</td>
             <td><button class="btn-secondary" onclick="abrirModalGenerarAlerta(${c.id}, ${t.id})"><i class="fa-solid fa-triangle-exclamation"></i> Alerta</button></td>
           </tr>`;
-        }).join('') : `<tr><td colspan="7" class="empty-state">No tienes negocios asignados.</td></tr>`}
+        }).join('') : `<tr><td colspan="7" class="empty-state">No tienes negocios asignados. Contacta al administrador para que te asigne uno.</td></tr>`}
       </tbody>
     </table></div>
   </div>`;
-}
-
-function abrirModalAutoasignarNegocio(trabajadorId) {
-  const t = getTrabajador(trabajadorId);
-  if (!t) return;
-  const disponibles = DB.clientes.filter(c => !t.negocios.includes(c.id));
-  if (!disponibles.length) { mostrarNotificacion('Ya tienes asignados todos los clientes registrados.'); return; }
-  openModal('Asignarme un Negocio', `
-    <div class="field" style="margin-bottom:14px;"><label>Seleccione el negocio</label>
-      <select class="form-control" id="auto-negocio">
-        ${disponibles.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')}
-      </select>
-    </div>
-    <button class="btn-main" onclick="confirmarAutoasignacion(${trabajadorId})"><i class="fa-solid fa-check"></i> Asignar a mi cargo</button>
-  `);
-}
-
-function confirmarAutoasignacion(trabajadorId) {
-  const t = getTrabajador(trabajadorId);
-  const sel = el('auto-negocio');
-  if (!t || !sel) return;
-  const cid = Number(sel.value);
-  if (!t.negocios.includes(cid)) t.negocios.push(cid);
-  registrarAuditoria('Trabajador se autoasignó negocio', `${t.nombre} → ${nombreNegocio(cid)}`);
-  guardarEstado();
-  closeModal();
-  mostrarNotificacion('Negocio asignado a tu cargo');
-  navegar('w-negocios');
 }
 
 function renderTrabajadorSeguimientos(t) {
@@ -1598,7 +1570,13 @@ function renderAdminDashboard() {
   <div class="card-table">
     <div class="card-table-header">
       <h3>Solicitudes de Edición de Datos de Negocio</h3>
-      <span class="subtitle">${solicitudesEdicion.filter(s => s.estado === 'Pendiente').length} pendientes</span>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+        <span class="subtitle">${solicitudesEdicion.filter(s => s.estado === 'Pendiente').length} pendientes</span>
+        ${solicitudesEdicion.length ? `
+          <button class="btn-secondary" onclick="limpiarSolicitudesAtendidas()"><i class="fa-solid fa-broom"></i> Limpiar atendidas</button>
+          <button class="btn-danger" onclick="vaciarTodasSolicitudesEdicion()"><i class="fa-solid fa-trash"></i> Vaciar todas</button>
+        ` : ''}
+      </div>
     </div>
     <div class="table-scroll"><table>
       <thead><tr><th>Fecha</th><th>Negocio</th><th>Cliente</th><th>Solicitud</th><th>Estado</th><th>Respuesta</th><th>Acción</th></tr></thead>
@@ -1610,7 +1588,10 @@ function renderAdminDashboard() {
           <td>${escapeHTML(s.mensaje)}</td>
           <td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : '<span class="badge badge-green">Atendida</span>'}</td>
           <td>${s.respuesta ? escapeHTML(s.respuesta) : '<span style="color:var(--text-muted);">-</span>'}</td>
-          <td><button class="btn-main" onclick="abrirModalAtenderSolicitud(${s.id})">${s.estado === 'Pendiente' ? 'Responder' : 'Ver / Editar'}</button></td>
+          <td style="display:flex;gap:6px;flex-wrap:wrap;">
+            <button class="btn-main" onclick="abrirModalAtenderSolicitud(${s.id})">${s.estado === 'Pendiente' ? 'Responder' : 'Ver / Editar'}</button>
+            <button class="btn-danger" onclick="eliminarSolicitudEdicion(${s.id})" title="Eliminar solicitud"><i class="fa-solid fa-trash"></i></button>
+          </td>
         </tr>`).join('') : `<tr><td colspan="7" class="empty-state">No hay solicitudes de edición registradas.</td></tr>`}
       </tbody>
     </table></div>
@@ -1659,9 +1640,12 @@ function abrirModalAtenderSolicitud(id) {
       <label>Respuesta del Administrador <span class="req">*</span></label>
       <textarea class="form-control" rows="4" id="se-respuesta" placeholder="Escribe aquí la confirmación del cambio o la respuesta para el cliente...">${escapeHTML(s.respuesta || '')}</textarea>
     </div>
-    <div style="display:flex;justify-content:flex-end;gap:10px;">
-      <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
-      <button class="btn-main" onclick="guardarRespuestaSolicitud(${id})"><i class="fa-solid fa-paper-plane"></i> Guardar y Notificar al Cliente</button>
+    <div style="display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+      <button class="btn-danger" onclick="eliminarSolicitudEdicion(${id})"><i class="fa-solid fa-trash"></i> Eliminar solicitud</button>
+      <div style="display:flex;gap:10px;">
+        <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+        <button class="btn-main" onclick="guardarRespuestaSolicitud(${id})"><i class="fa-solid fa-paper-plane"></i> Guardar y Notificar al Cliente</button>
+      </div>
     </div>
   `);
 }
@@ -2049,6 +2033,7 @@ function verTrabajadorDetalle(id) {
     <div class="form-grid-2">${field('Teléfono', t.telefono)}${field('Negocios asignados', negocios.length)}</div>
     <div class="form-box">
       <h4>Negocios Asignados</h4>
+      <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;">Solo el Administrador puede asignar o quitar negocios a este trabajador.</p>
       <select class="form-control" id="td-negocios" multiple size="8">
         ${DB.clientes.map(c => `<option value="${c.id}" ${t.negocios.includes(c.id) ? 'selected' : ''}>${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')}
       </select>
