@@ -3353,4 +3353,49 @@ function enlaceMapa(c) {
   return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent((c.negocio.direccion || '') + ', ' + (c.negocio.ciudad || ''))}`;
 }
 
+/* =========================================================
+   GESTIÓN Y VACIADO DE SOLICITUDES DE EDICIÓN
+   ========================================================= */
+
+// Eliminar una solicitud individual
+function eliminarSolicitudEdicion(id) {
+  const s = DB.solicitudesEdicion.find(x => x.id === id);
+  if (!s) return;
+  confirmarAccion(`¿Eliminar la solicitud de "${s.negocioNombre}"?`, () => {
+    DB.solicitudesEdicion = DB.solicitudesEdicion.filter(x => x.id !== id);
+    registrarAuditoria('Solicitud de edición eliminada', `${s.negocioNombre} — ${s.mensaje.slice(0, 30)}`);
+    guardarEstado();
+    mostrarNotificacion('Solicitud eliminada');
+    navegar('a-dashboard');
+  });
+}
+
+// Vaciar todas las solicitudes
+function vaciarTodasSolicitudesEdicion() {
+  if (!DB.solicitudesEdicion.length) return;
+  confirmarAccion(`¿Estás seguro de vaciar las ${DB.solicitudesEdicion.length} solicitudes de edición registradas? Esta acción no se puede deshacer.`, () => {
+    const total = DB.solicitudesEdicion.length;
+    DB.solicitudesEdicion = [];
+    registrarAuditoria('Vaciado de solicitudes de edición', `Se eliminaron ${total} solicitudes.`);
+    guardarEstado();
+    mostrarNotificacion('Todas las solicitudes fueron eliminadas');
+    navegar('a-dashboard');
+  });
+}
+
+// Limpiar únicamente las que ya fueron atendidas (conservando las pendientes)
+function limpiarSolicitudesAtendidas() {
+  const atendidas = DB.solicitudesEdicion.filter(s => s.estado === 'Atendida');
+  if (!atendidas.length) {
+    mostrarNotificacion('No hay solicitudes atendidas para eliminar', true);
+    return;
+  }
+  confirmarAccion(`¿Eliminar las ${atendidas.length} solicitudes que ya fueron atendidas y dejar solo las pendientes?`, () => {
+    DB.solicitudesEdicion = DB.solicitudesEdicion.filter(s => s.estado !== 'Atendida');
+    registrarAuditoria('Limpieza de solicitudes atendidas', `Se eliminaron ${atendidas.length} solicitudes atendidas.`);
+    guardarEstado();
+    mostrarNotificacion('Solicitudes atendidas eliminadas correctamente');
+    navegar('a-dashboard');
+  });
+}
 asegurarDatosNuevos();
