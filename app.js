@@ -1725,6 +1725,9 @@ function abrirModalRegistrarCliente() {
         <div class="field"><label>Correo</label><input type="email" class="form-control" id="nc-correo"></div>
         <div class="field"><label>Dirección</label><input class="form-control" id="nc-direccion"></div>
       </div>
+      <div class="field"><label>Contraseña de acceso <span class="req">*</span></label>
+        <input type="password" class="form-control" id="nc-password" placeholder="Mínimo 6 caracteres">
+      </div>
     </div>
     <div class="form-box">
       <h4>Datos del Negocio</h4>
@@ -1749,10 +1752,16 @@ function guardarNuevoCliente() {
   const telefono = el('nc-telefono').value.trim();
   const negNombre = el('nc-neg-nombre').value.trim();
   const ciudad = el('nc-neg-ciudad').value.trim();
+  const password = el('nc-password').value;
   if (!nombre || !telefono || !negNombre || !ciudad) {
     mostrarNotificacion('Complete todos los campos obligatorios (*)', true);
     return;
   }
+  if (!password || password.length < 6) {
+    mostrarNotificacion('La contraseña debe tener al menos 6 caracteres', true);
+    return;
+  }
+
   const id = DB.nextId.cliente++;
   DB.clientes.push({
     id, nombre, documento: el('nc-documento').value.trim(), telefono,
@@ -1766,15 +1775,17 @@ function guardarNuevoCliente() {
     resultados: { ventas: 0, gastos: 0, utilidad: 0, inventario: 0, deudas: 0, metas: 0 },
     estado: 'normal',
     proceso: {
-      requisitos: { antiguedad: false, documentacion: false, evidenciaVentas: false, estadosFinancieros: false, referencias: false, visitaTrabajador: false, evaluacionRiesgo: false },
-      etapas: { contrato: false, desembolso: false, seguimientoSemanal: false, reporte: false, liquidacion: false, revisionMensual: false }
+      requisitos: { antiguedad:false,documentacion:false,evidenciaVentas:false,estadosFinancieros:false,referencias:false,visitaTrabajador:false,evaluacionRiesgo:false },
+      etapas: { contrato:false,desembolso:false,seguimientoSemanal:false,reporte:false,liquidacion:false,revisionMensual:false }
     }
   });
 
-  registrarAuditoria('Cliente registrado', `${nombre} — ${negNombre}`);
+  DB.usuarios.push({ id: DB.nextId.usuario++, nombre, rol: 'client', entidadId: id, entidadNombre: negNombre, password, activo: true });
+
+  registrarAuditoria('Cliente y usuario creados', `${nombre} — ${negNombre}`);
   closeModal();
   guardarEstado();
-  mostrarNotificacion('Cliente registrado correctamente');
+  mostrarNotificacion('Cliente registrado con acceso creado correctamente');
   navegar('a-clientes');
 }
 
@@ -1988,6 +1999,10 @@ function abrirModalRegistrarTrabajador() {
       <div class="field"><label>Nombre <span class="req">*</span></label><input class="form-control" id="nt-nombre"></div>
       <div class="field"><label>Teléfono <span class="req">*</span></label><input class="form-control" id="nt-telefono"></div>
     </div>
+    <div class="field" style="margin:14px 0;">
+      <label>Contraseña de acceso <span class="req">*</span></label>
+      <input type="password" class="form-control" id="nt-password" placeholder="Mínimo 6 caracteres">
+    </div>
     <div class="field" style="margin:14px 0;"><label>Negocios a asignar</label>
       <select class="form-control" id="nt-negocios" multiple size="5">
         ${DB.clientes.map(c => `<option value="${c.id}">${escapeHTML(c.negocio.nombre)} — ${escapeHTML(c.nombre)}</option>`).join('')}
@@ -2000,13 +2015,20 @@ function abrirModalRegistrarTrabajador() {
 function guardarNuevoTrabajador() {
   const nombre = el('nt-nombre').value.trim();
   const telefono = el('nt-telefono').value.trim();
+  const password = el('nt-password').value;
   if (!nombre || !telefono) { mostrarNotificacion('Complete nombre y teléfono', true); return; }
+  if (!password || password.length < 6) { mostrarNotificacion('La contraseña debe tener al menos 6 caracteres', true); return; }
+
   const sel = Array.from(el('nt-negocios').selectedOptions).map(o => Number(o.value)).filter(v => !isNaN(v));
-  DB.trabajadores.push({ id: DB.nextId.trabajador++, nombre, telefono, negocios: sel });
-  registrarAuditoria('Trabajador registrado', nombre);
+  const id = DB.nextId.trabajador++;
+  DB.trabajadores.push({ id, nombre, telefono, negocios: sel });
+
+  DB.usuarios.push({ id: DB.nextId.usuario++, nombre, rol: 'worker', entidadId: id, entidadNombre: nombre, password, activo: true });
+
+  registrarAuditoria('Trabajador y usuario creados', nombre);
   closeModal();
   guardarEstado();
-  mostrarNotificacion('Trabajador registrado correctamente');
+  mostrarNotificacion('Trabajador registrado con acceso creado correctamente');
   navegar('a-trabajadores');
 }
 
@@ -2015,8 +2037,8 @@ function eliminarTrabajador(id) {
   if (!t) return;
   confirmarAccion(`¿Eliminar al trabajador ${t.nombre}?`, () => {
     DB.trabajadores = DB.trabajadores.filter(x => x.id !== id);
-    DB.usuarios.forEach(u => { if (u.rol === 'worker' && u.entidadId === id) u.activo = false; });
-    registrarAuditoria('Trabajador eliminado', t.nombre);
+    DB.usuarios = DB.usuarios.filter(u => !(u.rol === 'worker' && u.entidadId === id));
+    registrarAuditoria('Trabajador y su usuario eliminados', t.nombre);
     guardarEstado();
     mostrarNotificacion('Trabajador eliminado');
     navegar('a-trabajadores');
