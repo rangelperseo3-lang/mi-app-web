@@ -679,7 +679,7 @@ function renderClienteInversion(c) {
       <h3>Información de Inversión JORAN</h3>
       <div style="display:flex;gap:8px;flex-wrap:wrap;">
         <button class="btn-main" onclick="abrirModalSolicitarInversionCliente(${c.id})"><i class="fa-solid fa-hand-holding-dollar"></i> ${c.inversion.aprobado ? 'Solicitar otra inversión' : 'Solicitar inversión'}</button>
-        <button class="btn-secondary" onclick="descargarContratoInversion(${c.id})"><i class="fa-solid fa-file-contract"></i> Ver contrato/resumen</button>
+        <button class="btn-secondary" onclick="verContratoInversion(${c.id})"><i class="fa-solid fa-file-contract"></i> Ver Contrato de Inversión</button>
       </div>
     </div>
     <div class="form-grid-3">
@@ -705,45 +705,218 @@ function renderClienteInversion(c) {
   ${renderNotificacionesSesion()}`;
 }
 
-function descargarContratoInversion(clienteId) {
+/* =========================================================
+   CONTRATO DE INVERSIÓN - Vista formateada (pestaña nueva)
+   ========================================================= */
+function lineaOGuion(v) {
+  const vacio = v === undefined || v === null || v === '';
+  return vacio ? '<span class="linea-vacia"></span>' : escapeHTML(v);
+}
+
+function seccionContrato(numero, titulo, contenidoHtml) {
+  return `
+  <div class="cn-seccion">
+    <div class="cn-seccion-titulo"><span class="cn-numero">${numero}</span> ${escapeHTML(titulo)}</div>
+    <div class="cn-seccion-cuerpo">${contenidoHtml}</div>
+  </div>`;
+}
+
+function generarContratoHTML(c) {
+  const i = c.inversion;
+  const p = DB.parametros;
+  const hoy = fechaLarga(fechaHoyLocal());
+
+  const col1 = [
+    seccionContrato(1, 'Identificación de las Partes', `
+      <div class="cn-partes">
+        <div class="cn-parte">
+          <b>INVERSIONES JORAN</b>
+          <p>Nombre: ${lineaOGuion(p.nombreEmpresa)}</p>
+          <p>Representante: <span class="linea-vacia"></span></p>
+          <p>C.C. N.°: <span class="linea-vacia"></span></p>
+        </div>
+        <div class="cn-parte">
+          <b>EL PROPIETARIO</b>
+          <p>Nombre: ${lineaOGuion(c.nombre)}</p>
+          <p>C.C. N.°: ${lineaOGuion(c.documento)}</p>
+          <p>Dirección: ${lineaOGuion(c.direccion)}</p>
+          <p>Teléfono: ${lineaOGuion(c.telefono)}</p>
+        </div>
+      </div>`),
+    seccionContrato(2, 'Objeto del Contrato', `
+      <p>JORAN se compromete a realizar una inversión en el negocio descrito en este contrato, con el fin de fortalecer su operación y crecimiento. A cambio, el propietario otorgará a JORAN una participación en las utilidades, según lo establecido en este documento.</p>`),
+    seccionContrato(3, 'Información del Negocio', `
+      <table class="cn-tabla">
+        <tr><td>Nombre del negocio:</td><td>${lineaOGuion(c.negocio.nombre)}</td></tr>
+        <tr><td>Actividad económica:</td><td>${lineaOGuion(c.negocio.tipo)}</td></tr>
+        <tr><td>Dirección:</td><td>${lineaOGuion(c.negocio.direccion)}</td></tr>
+        <tr><td>Teléfono:</td><td>${lineaOGuion(c.telefono)}</td></tr>
+        <tr><td>Antigüedad del negocio:</td><td>${c.negocio.fechaInicio ? fechaLarga(c.negocio.fechaInicio) : '<span class="linea-vacia"></span>'}</td></tr>
+        <tr><td>Monto de la inversión por parte de JORAN:</td><td>${formatCOP(i.aprobado)}</td></tr>
+      </table>`),
+    seccionContrato(4, 'Monto y Destino del Capital', `
+      <p>El capital aportado por JORAN será de: <b>${formatCOP(i.aprobado)}</b>.</p>
+      <p>El cual será destinado a: ${lineaOGuion(i.destino)}</p>
+      <p>El desembolso se realizará el día: ${i.fecha ? fechaLarga(i.fecha) : '<span class="linea-vacia"></span>'}.</p>`),
+    seccionContrato(5, 'Participación en las Utilidades', `
+      <p>JORAN recibirá el <b>${i.participacion || 0}%</b> (${numeroALetraPorciento(i.participacion)}) de las utilidades netas generadas por el negocio, siempre y cuando este sea el modelo comercial acordado entre las partes.</p>
+      <p>La utilidad neta se calculará restando de los ingresos todos los costos, gastos, impuestos y demás egresos del negocio.</p>`),
+    seccionContrato(6, 'Seguimiento Semanal', `
+      <p>JORAN realizará un seguimiento semanal del negocio a través del trabajador asignado, quien registrará la información en la plataforma de gestión. El propietario se compromete a facilitar el acceso a la información y a permitir las visitas de seguimiento.</p>`)
+  ].join('');
+
+  const col2 = [
+    seccionContrato(7, 'Obligaciones del Propietario', `
+      <ul>
+        <li>Administrar el negocio de forma responsable y eficiente.</li>
+        <li>Permitir el seguimiento semanal por parte del trabajador de JORAN.</li>
+        <li>Entregar la información financiera y operativa solicitada.</li>
+        <li>Facilitar el acceso a la documentación del negocio.</li>
+        <li>Informar oportunamente cualquier novedad, problema o riesgo.</li>
+      </ul>`),
+    seccionContrato(8, 'Obligaciones de JORAN', `
+      <ul>
+        <li>Realizar el desembolso del capital acordado.</li>
+        <li>Hacer seguimiento semanal al negocio.</li>
+        <li>Brindar acompañamiento y asesoría para el fortalecimiento del negocio.</li>
+        <li>Registrar toda la información en la plataforma de gestión.</li>
+        <li>Mantener la confidencialidad de la información.</li>
+      </ul>`),
+    seccionContrato(9, 'Manejo de Pérdidas y Riesgos', `
+      <p>Si el negocio genera pérdidas, JORAN no estará obligado a recibir utilidades hasta que se recuperen las pérdidas o se acuerde una nueva estrategia. En caso de pérdidas continuas o incumplimiento, las partes podrán revisar el contrato y definir la terminación del acuerdo o la reestructuración de la inversión.</p>`),
+    seccionContrato(10, 'Vigencia y Terminación', `
+      <p>El presente contrato tendrá una duración de <span class="linea-vacia corta"></span> meses, comenzando el día ${i.fecha ? fechaLarga(i.fecha) : '<span class="linea-vacia"></span>'}. Podrá terminarse por mutuo acuerdo, incumplimiento de alguna de las partes o por las causales establecidas en este contrato.</p>`),
+    seccionContrato(11, 'Confidencialidad y Protección de Datos', `
+      <p>Las partes se comprometen a mantener la información del negocio, de los datos personales y de la operación de la inversión en estricta confidencialidad, y a utilizarla únicamente para los fines de este contrato, de acuerdo con la normativa vigente en protección de datos.</p>`),
+    seccionContrato(12, 'Solución de Controversias', `
+      <p>En caso de diferencias, las partes buscarán una solución de mutuo acuerdo. Si no es posible, se someterán a un mecanismo de conciliación o, en su defecto, a la jurisdicción ordinaria colombiana.</p>`),
+    seccionContrato(13, 'Aceptación y Firmas', `
+      <p>Las partes declaran haber leído, entendido y aceptado el contenido de este contrato, y lo firman en señal de conformidad.</p>
+      <p>Fecha de firma: <span class="linea-vacia corta"></span></p>`)
+  ].join('');
+
+  return `<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<title>Contrato de Inversión — ${escapeHTML(c.negocio.nombre)}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+<style>
+  :root{--navy-deep:#071427;--navy:#0d2340;--navy-mid:#123055;--gold:#c9a227;--gold-light:#e0c05a;--text-main:#1c2733;--text-muted:#64748b;--border-color:#dbe2ea;}
+  *{box-sizing:border-box;margin:0;padding:0;font-family:'Segoe UI',system-ui,sans-serif;}
+  body{background:#e9edf3;color:var(--text-main);padding:26px 14px 60px;}
+  .cn-toolbar{position:sticky;top:0;max-width:900px;margin:0 auto 16px;display:flex;justify-content:flex-end;gap:10px;z-index:10;}
+  .cn-toolbar button{background:var(--navy);color:var(--gold-light);border:none;padding:10px 18px;border-radius:8px;font-weight:700;cursor:pointer;font-size:.85rem;display:inline-flex;align-items:center;gap:8px;box-shadow:0 4px 12px rgba(0,0,0,.15);}
+  .cn-toolbar button:hover{background:var(--navy-mid);}
+  .cn-toolbar button.secundario{background:#fff;color:var(--navy);border:1px solid var(--border-color);}
+  .cn-hoja{max-width:900px;margin:0 auto;background:#fff;border-radius:14px;overflow:hidden;box-shadow:0 20px 50px rgba(7,20,39,.18);position:relative;}
+  .cn-esquina{position:absolute;top:0;width:120px;height:120px;background:var(--navy-deep);}
+  .cn-esquina::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 48%,var(--gold) 49%,var(--gold) 51%,transparent 52%);}
+  .cn-esquina.izq{left:0;clip-path:polygon(0 0,100% 0,0 100%);}
+  .cn-esquina.der{right:0;clip-path:polygon(100% 0,100% 100%,0 0);}
+  .cn-membrete{padding:34px 30px 20px;text-align:center;position:relative;}
+  .cn-logo{width:64px;height:64px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(160deg,var(--navy-mid),var(--navy-deep));border:2px solid var(--gold);color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.3rem;}
+  .cn-membrete h1{color:var(--navy);font-size:1.05rem;letter-spacing:2px;font-weight:800;}
+  .cn-membrete .cn-sub{color:var(--text-muted);font-size:.72rem;letter-spacing:3px;text-transform:uppercase;margin-top:2px;}
+  .cn-titulo-banner{background:linear-gradient(120deg,var(--navy-deep),var(--navy));color:#fff;text-align:center;padding:16px 20px;margin:0 24px 22px;border-radius:10px;border-bottom:4px solid var(--gold);}
+  .cn-titulo-banner h2{font-size:1.35rem;letter-spacing:1px;font-weight:800;}
+  .cn-titulo-banner span{font-size:.78rem;color:var(--gold-light);letter-spacing:2px;text-transform:uppercase;}
+  .cn-intro{padding:0 30px 20px;font-size:.86rem;line-height:1.6;color:#334155;}
+  .cn-cuerpo{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;padding:0 24px 10px;}
+  .cn-seccion{margin-bottom:16px;}
+  .cn-seccion-titulo{background:var(--navy);color:#fff;font-size:.78rem;font-weight:800;letter-spacing:.3px;padding:8px 12px;border-radius:6px;display:flex;align-items:center;gap:8px;text-transform:uppercase;}
+  .cn-numero{background:var(--gold);color:var(--navy-deep);width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:900;flex-shrink:0;}
+  .cn-seccion-cuerpo{font-size:.8rem;line-height:1.55;color:#334155;padding:9px 4px 0;}
+  .cn-seccion-cuerpo p{margin-bottom:6px;}
+  .cn-seccion-cuerpo ul{padding-left:18px;}
+  .cn-seccion-cuerpo li{margin-bottom:4px;}
+  .cn-tabla{width:100%;border-collapse:collapse;font-size:.8rem;}
+  .cn-tabla td{padding:4px 6px;border-bottom:1px solid var(--border-color);}
+  .cn-tabla td:first-child{color:var(--text-muted);font-weight:600;width:58%;}
+  .cn-partes{display:flex;flex-direction:column;gap:10px;}
+  .cn-parte b{color:var(--navy);display:block;margin-bottom:3px;font-size:.78rem;}
+  .cn-parte p{font-size:.8rem;margin-bottom:2px;}
+  .linea-vacia{display:inline-block;min-width:140px;border-bottom:1px solid #94a3b8;}
+  .linea-vacia.corta{min-width:70px;}
+  .cn-firmas{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:10px 24px 30px;}
+  .cn-firma-box{background:#f8fafc;border:1px solid var(--border-color);border-radius:10px;padding:16px;}
+  .cn-firma-box h4{color:var(--navy);font-size:.78rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;border-bottom:2px solid var(--gold);padding-bottom:6px;display:inline-block;}
+  .cn-firma-box p{font-size:.78rem;margin-bottom:16px;color:#334155;}
+  .cn-firma-linea{border-top:1px solid #334155;margin-top:26px;padding-top:5px;font-size:.72rem;color:var(--text-muted);text-align:center;}
+  .cn-pie{text-align:center;font-size:.68rem;color:var(--text-muted);padding:0 24px 26px;}
+  @media(max-width:720px){.cn-cuerpo{grid-template-columns:1fr;}.cn-firmas{grid-template-columns:1fr;}}
+  @media print{
+    body{background:#fff;padding:0;}
+    .cn-toolbar{display:none;}
+    .cn-hoja{box-shadow:none;border-radius:0;max-width:100%;}
+    .cn-cuerpo{grid-template-columns:1fr 1fr;}
+  }
+</style>
+</head>
+<body>
+  <div class="cn-toolbar">
+    <button class="secundario" onclick="window.close()"><i class="fa-solid fa-xmark"></i> Cerrar</button>
+    <button onclick="window.print()"><i class="fa-solid fa-print"></i> Imprimir / Guardar como PDF</button>
+  </div>
+  <div class="cn-hoja">
+    <div class="cn-esquina izq"></div>
+    <div class="cn-esquina der"></div>
+    <div class="cn-membrete">
+      <div class="cn-logo">JR</div>
+      <h1>JORAN INVERSIONES</h1>
+      <div class="cn-sub">Plataforma de gestión PyMEs</div>
+    </div>
+    <div class="cn-titulo-banner">
+      <h2>CONTRATO DE INVERSIÓN</h2>
+      <span>Inversiones Joran</span>
+    </div>
+    <div class="cn-intro">
+      Entre los suscritos, por una parte, <b>INVERSIONES JORAN</b>, en adelante "<b>JORAN</b>", y por la otra, el/la señor(a)
+      <b>${lineaOGuion(c.nombre)}</b>, identificado(a) con cédula de ciudadanía N.° <b>${lineaOGuion(c.documento)}</b>,
+      en adelante "<b>EL PROPIETARIO</b>", acuerdan celebrar el presente Contrato de Inversión, bajo las siguientes condiciones:
+    </div>
+    <div class="cn-cuerpo">
+      <div>${col1}</div>
+      <div>${col2}</div>
+    </div>
+    <div class="cn-firmas">
+      <div class="cn-firma-box">
+        <h4>Por Inversiones Joran</h4>
+        <p>Nombre: <span class="linea-vacia"></span><br><br>C.C. N.°: <span class="linea-vacia"></span><br><br>Cargo: <span class="linea-vacia"></span></p>
+        <div class="cn-firma-linea">Firma</div>
+      </div>
+      <div class="cn-firma-box">
+        <h4>El Propietario</h4>
+        <p>Nombre: ${lineaOGuion(c.nombre)}<br><br>C.C. N.°: ${lineaOGuion(c.documento)}<br><br>Dirección: ${lineaOGuion(c.direccion)}</p>
+        <div class="cn-firma-linea">Firma</div>
+      </div>
+    </div>
+    <div class="cn-pie">Documento generado por la plataforma de INVERSIONES JORAN el ${hoy}. Este documento es una vista previa del contrato y debe ser revisado antes de su firma.</div>
+  </div>
+</body>
+</html>`;
+}
+
+function numeroALetraPorciento(n) {
+  const num = Number(n) || 0;
+  const unidades = ['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte'];
+  if (num >= 0 && num <= 20) return `${unidades[num]} por ciento`;
+  return `${num} por ciento`;
+}
+
+function verContratoInversion(clienteId) {
   const c = getCliente(clienteId);
   if (!c) { mostrarNotificacion('No se encontró información del cliente', true); return; }
-  const i = c.inversion;
-  const contenido =
-`RESUMEN DE CONTRATO DE INVERSIÓN
-${DB.parametros.nombreEmpresa}
-=====================================
-
-Cliente: ${c.nombre}
-Documento: ${c.documento || '-'}
-Negocio: ${c.negocio.nombre}
-
-Capital solicitado: ${formatCOP(i.solicitado)}
-Capital aprobado: ${formatCOP(i.aprobado)}
-Capital recibido: ${formatCOP(i.recibido)}
-
-Fecha de inversión: ${fechaLarga(i.fecha)}
-Tipo de inversión: ${i.tipo || '-'}
-Participación de JORAN: ${i.participacion}%
-Estado de la inversión: ${i.estado || '-'}
-Rentabilidad: ${i.rentabilidad}%
-
-Destino de la inversión:
-${i.destino || '-'}
-
-=====================================
-Generado el: ${fechaLarga(fechaHoyLocal())}
-`;
-  const blob = new Blob([contenido], { type: 'text/plain;charset=utf-8' });
+  const html = generarContratoHTML(c);
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
   const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = `Contrato_${c.negocio.nombre.replace(/\s+/g, '_')}.txt`;
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  URL.revokeObjectURL(url);
-  mostrarNotificacion('Contrato descargado correctamente');
+  const ventana = window.open(url, '_blank');
+  if (!ventana) {
+    mostrarNotificacion('El navegador bloqueó la ventana emergente. Permite las ventanas emergentes para ver el contrato.', true);
+    return;
+  }
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
 }
 
 function renderClienteFinanzas(c) {
@@ -1722,6 +1895,7 @@ function verClienteDetalle(id) {
           `).join('')}
         </div>
         <button class="btn-main" style="margin-top:12px;" onclick="guardarEtapasProceso(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Etapas</button>
+        <button class="btn-secondary" style="margin-top:12px;margin-left:8px;" onclick="verContratoInversion(${c.id})"><i class="fa-solid fa-file-contract"></i> Ver / Imprimir Contrato</button>
       </div>
     </div>
 
