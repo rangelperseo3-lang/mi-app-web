@@ -2311,6 +2311,19 @@ function guardarConfiguracionAdmin() {
 
 function nombreRol(rol) { return rol === 'client' ? 'Cliente' : rol === 'worker' ? 'Trabajador' : 'Administrador'; }
 
+/* Protección de cuentas de administrador: siempre debe quedar al menos un
+   administrador activo en la plataforma, y nadie puede desactivarse o
+   eliminarse a sí mismo mientras está en sesión. */
+function adminsActivos() {
+  return DB.usuarios.filter(u => u.rol === 'admin' && u.activo);
+}
+function esUltimoAdminActivo(u) {
+  return u.rol === 'admin' && u.activo && adminsActivos().length <= 1;
+}
+function esMiPropiaCuenta(u) {
+  return SESSION.rol === 'admin' && u.id === SESSION.usuarioId;
+}
+
 /* GESTIÓN AVANZADA DE USUARIOS Y CONTRASEÑAS */
 let _todasPasswordsVisibles = false;
 
@@ -2480,11 +2493,20 @@ function renderCfgUsuarios() {
                 </button>
               </div>
             </td>
-            <td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}</td>
-            <td style="display:flex;gap:6px;flex-wrap:wrap;">
-              <button class="btn-secondary" onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button>
+            <td>${u.activo ? '<span class="badge badge-green">Activo</span>' : '<span class="badge badge-red">Inactivo</span>'}${esMiPropiaCuenta(u) ? ' <span class="badge badge-amber" title="Tu cuenta en sesión">Tú</span>' : ''}</td>
+            <td style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;">
+              ${(() => {
+                const protegido = u.rol === 'admin' && (esMiPropiaCuenta(u) || esUltimoAdminActivo(u));
+                const motivo = esMiPropiaCuenta(u) ? 'No puedes desactivarte a ti mismo' : 'Debe quedar al menos un administrador activo';
+                return `<button class="btn-secondary" ${protegido && u.activo ? `disabled title="${motivo}"` : ''} onclick="toggleUsuarioActivo(${u.id})">${u.activo ? 'Desactivar' : 'Activar'}</button>`;
+              })()}
               <button class="btn-secondary" onclick="abrirModalCambiarPassword(${u.id})">Restablecer clave</button>
-              <button class="btn-danger" onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button>
+              ${(() => {
+                const esUnicoAdmin = u.rol === 'admin' && DB.usuarios.filter(x => x.rol === 'admin').length <= 1;
+                const protegido = u.rol === 'admin' && (esMiPropiaCuenta(u) || esUnicoAdmin);
+                const motivo = esMiPropiaCuenta(u) ? 'No puedes eliminar tu propia cuenta' : 'Debe quedar al menos un administrador registrado';
+                return `<button class="btn-danger" ${protegido ? `disabled title="${motivo}"` : ''} onclick="eliminarUsuario(${u.id})"><i class="fa-solid fa-trash"></i></button>`;
+              })()}
             </td>
           </tr>
         `).join('') : `<tr><td colspan="6" class="empty-state">Aún no hay usuarios registrados.</td></tr>`}
@@ -2787,6 +2809,18 @@ function guardarNuevoUsuario() {
 function toggleUsuarioActivo(id) {
   const u = DB.usuarios.find(x => x.id === id);
   if (!u) return;
+
+  if (u.activo && u.rol === 'admin') {
+    if (esMiPropiaCuenta(u)) {
+      mostrarNotificacion('No puedes desactivar tu propia cuenta de administrador mientras tienes la sesión abierta.', true);
+      return;
+    }
+    if (esUltimoAdminActivo(u)) {
+      mostrarNotificacion('No es posible desactivar este administrador: debe quedar al menos uno activo en la plataforma.', true);
+      return;
+    }
+  }
+
   u.activo = !u.activo;
   registrarAuditoria(u.activo ? 'Usuario activado' : 'Usuario desactivado', u.nombre);
   guardarEstado();
@@ -2795,10 +2829,23 @@ function toggleUsuarioActivo(id) {
 }
 
 function eliminarUsuario(id) {
-  confirmarAccion('¿Eliminar este usuario del directorio? Ya no podrá iniciar sesión.', () => {
-    const u = DB.usuarios.find(x => x.id === id);
-    DB.usuarios = DB.usuarios.filter(u => u.id !== id);
-    registrarAuditoria('Usuario eliminado', u ? u.nombre : String(id));
+  const u = DB.usuarios.find(x => x.id === id);
+  if (!u) return;
+
+  if (u.rol === 'admin') {
+    if (esMiPropiaCuenta(u)) {
+      mostrarNotificacion('No puedes eliminar tu propia cuenta de administrador mientras tienes la sesión abierta.', true);
+      return;
+    }
+    if (DB.usuarios.filter(x => x.rol === 'admin').length <= 1) {
+      mostrarNotificacion('No es posible eliminar este administrador: debe quedar al menos uno registrado en la plataforma.', true);
+      return;
+    }
+  }
+
+  confirmarAccion(`¿Eliminar al usuario ${u.nombre}? Ya no podrá iniciar sesión.`, () => {
+    DB.usuarios = DB.usuarios.filter(x => x.id !== id);
+    registrarAuditoria('Usuario eliminado', u.nombre);
     guardarEstado();
     mostrarNotificacion('Usuario eliminado');
     navegar('a-configuracion');
