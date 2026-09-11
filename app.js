@@ -1180,6 +1180,8 @@ function sugerirAlertaNegocio() {
 
 /* ---------------- Evidencias ---------------- */
 let EVID_TEMP = { fotos: [], documentos: [], facturas: [] };
+const MAX_EVIDENCIA_BYTES = 5 * 1024 * 1024;
+const MAX_EVIDENCIAS_TOTAL_BYTES = 20 * 1024 * 1024;
 function resetEvidenciasTemp() { EVID_TEMP = { fotos: [], documentos: [], facturas: [] }; }
 
 function comprimirImagen(file, maxAncho = 1280, calidad = 0.75) {
@@ -1209,13 +1211,39 @@ function comprimirImagen(file, maxAncho = 1280, calidad = 0.75) {
 function handleFileSelect(inputEl, tipo) {
   const files = Array.from(inputEl.files || []);
   if (!files.length) return;
-  const lecturas = files.map(file => {
+
+  const totalActual = ['fotos', 'documentos', 'facturas'].reduce((sum, k) => {
+    return sum + EVID_TEMP[k].reduce((acc, item) => acc + (Number(item.sizeBytes) || 0), 0);
+  }, 0);
+
+  const aceptados = [];
+  let totalNuevo = totalActual;
+  files.forEach(file => {
+    if (file.size > MAX_EVIDENCIA_BYTES) {
+      mostrarNotificacion(`El archivo "${file.name}" supera el límite de 5 MB.`, true);
+      return;
+    }
+    if (totalNuevo + file.size > MAX_EVIDENCIAS_TOTAL_BYTES) {
+      mostrarNotificacion('El conjunto de evidencias supera el límite total de 20 MB.', true);
+      return;
+    }
+    aceptados.push(file);
+    totalNuevo += file.size;
+  });
+
+  if (!aceptados.length) {
+    inputEl.value = '';
+    return;
+  }
+
+  const lecturas = aceptados.map(file => {
     if (file.type.startsWith('image/')) {
-      return comprimirImagen(file).then(dataUrl => ({ name: file.name, dataUrl, isImage: true }));
+      return comprimirImagen(file).then(dataUrl => ({ name: file.name, dataUrl, isImage: true, sizeBytes: file.size }));
     }
     return new Promise(resolve => {
       const reader = new FileReader();
-      reader.onload = () => resolve({ name: file.name, dataUrl: reader.result, isImage: false });
+      reader.onload = () => resolve({ name: file.name, dataUrl: reader.result, isImage: false, sizeBytes: file.size });
+      reader.onerror = () => resolve({ name: file.name, dataUrl: null, isImage: false, sizeBytes: file.size });
       reader.readAsDataURL(file);
     });
   });
@@ -1225,7 +1253,6 @@ function handleFileSelect(inputEl, tipo) {
     inputEl.value = '';
   });
 }
-
 function renderEvidenciaPreview(tipo) {
   const cont = el('preview-' + tipo);
   if (!cont) return;
@@ -1296,6 +1323,7 @@ function guardarSeguimientoTrabajador(trabajadorId) {
   if (nuevo.estado === 'riesgo' || nuevo.estado === 'critico') {
     DB.alertas.unshift({
       id: DB.nextId.alerta++,
+      seguimientoId: nuevo.id,
       clienteId: nuevo.clienteId,
       trabajadorId: trabajadorId,
       nivel: nuevo.estado,
@@ -1360,7 +1388,7 @@ function renderTrabajadorSeguimientos(t) {
           <td>${formatCOP(s.ventas)}</td>
           <td>${formatCOP(s.utilidad)}</td>
           <td>${badgeEstado(s.estado)}</td>
-          <td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver detalle</button></td>
+          <td style="display:flex;gap:5px;flex-wrap:wrap;"><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button><button class="btn-secondary" onclick="editarSeguimiento(${s.id})">Editar</button><button class="btn-secondary" onclick="eliminarSeguimiento(${s.id})">Eliminar</button></td>
         </tr>`).join('') : `<tr><td colspan="8" class="empty-state">Aún no has registrado seguimientos.</td></tr>`}
       </tbody>
     </table></div>
@@ -1420,10 +1448,46 @@ function guardarPerfilTrabajador(id) {
   mostrarNotificacion('Perfil actualizado');
 }
 
+function puedeGestionarSeguimiento(s) {
+  if (!s) return false;
+  if (SESSION.rol === 'admin') return true;
+  return SESSION.rol === 'worker' && Number(s.trabajadorId) === Number(SESSION.trabajadorId);
+}
+
+function sincronizarResultadosDesdeSeguimiento(s) {
+  const cliente = getCliente(s.clienteId);
+  if (!cliente) return;
+  cliente.estado = s.estado;
+  cliente.resultados.ventas = Number(s.ventas) || 0;
+  cliente.resultados.gastos = Number(s.gastos) || 0;
+  cliente.resultados.utilidad = Number(s.utilidad) || 0;
+  cliente.resultados.inventario = Number(s.inventario) || 0;
+  asegurarProcesoCliente(cliente).etapas.seguimientoSemanal = true;
+}
+
+function actualizarAlertaDeSeguimiento(s) {
+  DB.alertas = DB.alertas.filter(a => Number(a.seguimientoId) !== Number(s.id));
+  const cliente = getCliente(s.clienteId);
+  if (s.estado === 'riesgo' || s.estado === 'critico') {
+    DB.alertas.unshift({
+      id: DB.nextId.alerta++,
+      seguimientoId: s.id,
+      clienteId: s.clienteId,
+      trabajadorId: s.trabajadorId,
+      nivel: s.estado,
+      motivo: `Alerta generada en seguimiento (${s.semana}): ${s.problemas || 'Sin detalle de problemas'}`,
+      fecha: s.fecha,
+      estado: 'Abierta'
+    });
+  }
+  return cliente;
+}
+
 function verSeguimientoDetalle(id) {
   const s = DB.seguimientos.find(x => x.id === Number(id));
   if (!s) return;
   const ev = s.evidencias || { fotos: [], documentos: [], facturas: [], observaciones: '' };
+  const puedeEditar = puedeGestionarSeguimiento(s);
   openModal(`Seguimiento: ${escapeHTML(s.semana)} — ${nombreNegocio(s.clienteId)}`, `
     <div class="form-grid-3">
       ${field('Fecha', fechaLarga(s.fecha))}
@@ -1466,7 +1530,133 @@ function verSeguimientoDetalle(id) {
       ${(ev.fotos && ev.fotos.length) ? `<div style="display:flex;gap:8px;flex-wrap:wrap;margin-bottom:12px;">${ev.fotos.map(f => `<a href="${f.dataUrl}" target="_blank"><img src="${f.dataUrl}" style="width:70px;height:70px;object-fit:cover;border-radius:6px;border:1px solid #cbd5e1;"></a>`).join('')}</div>` : ''}
       ${field('Observaciones generales', ev.observaciones)}
     </div>
+    ${puedeEditar ? `<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px;"><button class="btn-secondary" onclick="editarSeguimiento(${s.id})">Editar seguimiento</button><button class="btn-secondary" onclick="eliminarSeguimiento(${s.id})">Eliminar seguimiento</button></div>` : ''}
   `);
+}
+
+function editarSeguimiento(id) {
+  const s = DB.seguimientos.find(x => x.id === Number(id));
+  if (!s || !puedeGestionarSeguimiento(s)) {
+    mostrarNotificacion('No tienes permiso para editar este seguimiento.', true);
+    return;
+  }
+  openModal(`Editar Seguimiento — ${escapeHTML(s.semana)}`, `
+    <div class="form-grid-3">
+      <div class="field"><label>Fecha *</label><input type="date" class="form-control" id="edseg-fecha" value="${escapeHTML(s.fecha || '')}"></div>
+      <div class="field"><label>Semana *</label><input class="form-control" id="edseg-semana" value="${escapeHTML(s.semana || '')}"></div>
+      <div class="field"><label>Tipo</label><select class="form-control" id="edseg-tipo"><option ${s.tipo === 'Presencial' ? 'selected' : ''}>Presencial</option><option ${s.tipo === 'Telefónico' ? 'selected' : ''}>Telefónico</option></select></div>
+    </div>
+    <div class="form-grid-3">
+      <div class="field"><label>Visita realizada</label><label style="display:flex;align-items:center;gap:7px;"><input type="checkbox" id="edseg-visita" ${s.visitaRealizada !== false ? 'checked' : ''} style="width:auto;"> Sí</label></div>
+      <div class="field"><label>Próxima visita</label><input type="date" class="form-control" id="edseg-proxima" value="${escapeHTML(s.proximaVisita || '')}"></div>
+      <div class="field"><label>Estado (alerta)</label><select class="form-control" id="edseg-estado">${['normal','atencion','riesgo','critico'].map(v => `<option value="${v}" ${s.estado === v ? 'selected' : ''}>${estadoInfo(v).emoji} ${estadoInfo(v).label}</option>`).join('')}</select></div>
+    </div>
+    <div class="form-box">
+      <h4>Información del Negocio</h4>
+      <div class="form-grid-4">
+        <div class="field"><label>Ventas</label><input type="number" min="0" class="form-control" id="edseg-ventas" value="${Number(s.ventas)||0}"></div>
+        <div class="field"><label>Gastos</label><input type="number" min="0" class="form-control" id="edseg-gastos" value="${Number(s.gastos)||0}"></div>
+        <div class="field"><label>Utilidad</label><input type="number" class="form-control" id="edseg-utilidad" value="${Number(s.utilidad)||0}"></div>
+        <div class="field"><label>Inventario</label><input type="number" min="0" class="form-control" id="edseg-inventario" value="${Number(s.inventario)||0}"></div>
+      </div>
+      <div class="form-grid-3">
+        <div class="field"><label>Flujo de caja</label><input type="number" class="form-control" id="edseg-flujo" value="${Number(s.flujoCaja)||0}"></div>
+        <div class="field"><label>Clientes atendidos</label><input type="number" min="0" class="form-control" id="edseg-clientes" value="${Number(s.clientesAtendidos)||0}"></div>
+        <div class="field"><label>Nuevos clientes</label><input type="number" min="0" class="form-control" id="edseg-nuevos" value="${Number(s.nuevosClientes)||0}"></div>
+      </div>
+    </div>
+    <div class="form-box">
+      <h4>Evaluación</h4>
+      <div class="form-grid-2">
+        <div class="field"><label>Cumplimiento de metas</label><select class="form-control" id="edseg-cumplimiento">${['Parcial','Total','No cumplida'].map(v => `<option ${s.cumplimientoMetas === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+        <div class="field"><label>Uso de la inversión</label><select class="form-control" id="edseg-uso">${['Adecuado','En revisión','Inadecuado'].map(v => `<option ${s.usoInversion === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>
+      </div>
+      <div class="field"><label>Problemas</label><textarea class="form-control" rows=2 id="edseg-problemas">${escapeHTML(s.problemas || '')}</textarea></div>
+      <div class="field"><label>Necesidades</label><textarea class="form-control" rows=2 id="edseg-necesidades">${escapeHTML(s.necesidades || '')}</textarea></div>
+      <div class="field"><label>Recomendaciones</label><textarea class="form-control" rows=2 id="edseg-recomendaciones">${escapeHTML(s.recomendaciones || '')}</textarea></div>
+      <div class="field"><label>Compromisos</label><textarea class="form-control" rows=2 id="edseg-compromisos">${escapeHTML(s.compromisos || '')}</textarea></div>
+      <div class="field"><label>Observaciones generales</label><textarea class="form-control" rows=2 id="edseg-observaciones">${escapeHTML((s.evidencias && s.evidencias.observaciones) || '')}</textarea></div>
+    </div>
+    <p style="font-size:.76rem;color:var(--text-muted);margin-bottom:12px;">Las evidencias adjuntas existentes se conservan. Para agregar nuevas evidencias, utiliza un nuevo seguimiento.</p>
+    <button class="btn-main" onclick="guardarEdicionSeguimiento(${s.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar cambios</button>
+  `);
+}
+
+function guardarEdicionSeguimiento(id) {
+  const s = DB.seguimientos.find(x => x.id === Number(id));
+  if (!s || !puedeGestionarSeguimiento(s)) {
+    mostrarNotificacion('No tienes permiso para editar este seguimiento.', true);
+    return;
+  }
+  const fecha = el('edseg-fecha').value;
+  const semana = el('edseg-semana').value.trim();
+  if (!fecha || !semana) {
+    mostrarNotificacion('La fecha y la semana son obligatorias.', true);
+    return;
+  }
+  s.fecha = fecha;
+  s.semana = semana;
+  s.tipo = el('edseg-tipo').value;
+  s.visitaRealizada = el('edseg-visita').checked;
+  s.proximaVisita = el('edseg-proxima').value || null;
+  s.estado = el('edseg-estado').value;
+  s.ventas = Number(el('edseg-ventas').value) || 0;
+  s.gastos = Number(el('edseg-gastos').value) || 0;
+  s.utilidad = Number(el('edseg-utilidad').value) || 0;
+  s.inventario = Number(el('edseg-inventario').value) || 0;
+  s.flujoCaja = Number(el('edseg-flujo').value) || 0;
+  s.clientesAtendidos = Number(el('edseg-clientes').value) || 0;
+  s.nuevosClientes = Number(el('edseg-nuevos').value) || 0;
+  s.cumplimientoMetas = el('edseg-cumplimiento').value;
+  s.usoInversion = el('edseg-uso').value;
+  s.problemas = el('edseg-problemas').value.trim();
+  s.necesidades = el('edseg-necesidades').value.trim();
+  s.recomendaciones = el('edseg-recomendaciones').value.trim();
+  s.compromisos = el('edseg-compromisos').value.trim();
+  s.evidencias = s.evidencias || { fotos: [], documentos: [], facturas: [], observaciones: '' };
+  s.evidencias.observaciones = el('edseg-observaciones').value.trim();
+
+  const cliente = actualizarAlertaDeSeguimiento(s);
+  sincronizarResultadosDesdeSeguimiento(s);
+  if (cliente && (s.estado === 'riesgo' || s.estado === 'critico')) {
+    crearNotificacion('admin', null, `Alerta ${estadoInfo(s.estado).label}`, `${cliente.negocio.nombre} entró en ${estadoInfo(s.estado).label}.`, 'alerta');
+  }
+  registrarAuditoria('Seguimiento editado', `${cliente ? cliente.negocio.nombre : '-'} — ${s.semana}`);
+  guardarEstado();
+  closeModal();
+  mostrarNotificacion('Seguimiento actualizado correctamente');
+  if (SESSION.rol === 'admin') navegar('a-seguimientos');
+  else if (SESSION.rol === 'worker') navegar('w-seguimientos');
+}
+
+function eliminarSeguimiento(id) {
+  const s = DB.seguimientos.find(x => x.id === Number(id));
+  if (!s || !puedeGestionarSeguimiento(s)) {
+    mostrarNotificacion('No tienes permiso para eliminar este seguimiento.', true);
+    return;
+  }
+  confirmarAccion(`¿Eliminar el seguimiento de ${nombreNegocio(s.clienteId)} (${s.semana})? Esta acción no se puede deshacer.`, () => {
+    const cliente = getCliente(s.clienteId);
+    DB.seguimientos = DB.seguimientos.filter(x => x.id !== s.id);
+    DB.alertas = DB.alertas.filter(a => Number(a.seguimientoId) !== Number(s.id));
+    const ultimo = cliente ? ultimoSeguimiento(cliente.id) : null;
+    if (cliente) {
+      if (ultimo) sincronizarResultadosDesdeSeguimiento(ultimo);
+      else {
+        cliente.estado = 'normal';
+        cliente.resultados.ventas = 0;
+        cliente.resultados.gastos = 0;
+        cliente.resultados.utilidad = 0;
+        cliente.resultados.inventario = 0;
+      }
+    }
+    registrarAuditoria('Seguimiento eliminado', `${cliente ? cliente.negocio.nombre : '-'} — ${s.semana}`);
+    guardarEstado();
+    closeModal();
+    mostrarNotificacion('Seguimiento eliminado correctamente');
+    if (SESSION.rol === 'admin') navegar('a-seguimientos');
+    else if (SESSION.rol === 'worker') navegar('w-seguimientos');
+  });
 }
 
 /* =========================================================
@@ -1796,6 +1986,11 @@ function eliminarCliente(id) {
     DB.clientes = DB.clientes.filter(x => x.id !== id);
     DB.seguimientos = DB.seguimientos.filter(s => s.clienteId !== id);
     DB.usuarios = DB.usuarios.filter(u => !(u.rol === 'client' && u.entidadId === id));
+    DB.solicitudesEdicion = DB.solicitudesEdicion.filter(s => s.clienteId !== id);
+    DB.solicitudesInversion = DB.solicitudesInversion.filter(s => s.clienteId !== id);
+    DB.alertas = DB.alertas.filter(a => a.clienteId !== id);
+    DB.pagos = DB.pagos.filter(p => p.clienteId !== id);
+    DB.notificaciones = DB.notificaciones.filter(n => !(n.entidadId === id && n.rol === 'client'));
     DB.trabajadores.forEach(t => { t.negocios = t.negocios.filter(nid => nid !== id); });
     registrarAuditoria('Cliente eliminado', c.negocio.nombre);
     guardarEstado();
@@ -1907,6 +2102,9 @@ function verClienteDetalle(id) {
           <div class="field"><label>Deudas</label><input type="number" class="form-control" id="res-deudas-${c.id}" value="${r.deudas}"></div>
           <div class="field"><label>Meta Mensual</label><input type="number" class="form-control" id="res-metas-${c.id}" value="${r.metas}"></div>
         </div>
+        <div class="form-grid-3">
+          <div class="field"><label>Rentabilidad de inversión (%)</label><input type="number" step="0.01" class="form-control" id="res-rentabilidad-${c.id}" value="${Number(c.inversion.rentabilidad) || 0}"></div>
+        </div>
         <button class="btn-main" onclick="guardarResultadosCliente(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Resultados</button>
       </div>
     </div>
@@ -1965,7 +2163,9 @@ function guardarResultadosCliente(id) {
   c.resultados.inventario = Number(el(`res-inventario-${id}`).value) || 0;
   c.resultados.deudas = Number(el(`res-deudas-${id}`).value) || 0;
   c.resultados.metas = Number(el(`res-metas-${id}`).value) || 0;
-  registrarAuditoria('Resultados de negocio editados', c.negocio.nombre);
+  c.inversion = c.inversion || {};
+  c.inversion.rentabilidad = Number(el(`res-rentabilidad-${id}`).value) || 0;
+  registrarAuditoria('Resultados financieros y rentabilidad editados', c.negocio.nombre);
   guardarEstado();
   mostrarNotificacion('Resultados actualizados');
 }
@@ -2038,6 +2238,9 @@ function eliminarTrabajador(id) {
   confirmarAccion(`¿Eliminar al trabajador ${t.nombre}?`, () => {
     DB.trabajadores = DB.trabajadores.filter(x => x.id !== id);
     DB.usuarios = DB.usuarios.filter(u => !(u.rol === 'worker' && u.entidadId === id));
+    DB.seguimientos = DB.seguimientos.filter(s => s.trabajadorId !== id);
+    DB.alertas = DB.alertas.filter(a => a.trabajadorId !== id);
+    DB.notificaciones = DB.notificaciones.filter(n => !(n.entidadId === id && n.rol === 'worker'));
     registrarAuditoria('Trabajador y su usuario eliminados', t.nombre);
     guardarEstado();
     mostrarNotificacion('Trabajador eliminado');
@@ -2097,11 +2300,43 @@ function renderAdminInversiones() {
           <td>${escapeHTML(c.inversion.tipo)}</td>
           <td>${c.inversion.participacion}%</td>
           <td>${escapeHTML(c.inversion.estado)}</td>
-          <td style="color:${c.inversion.rentabilidad >= 0 ? 'var(--success-green)' : 'var(--danger-red)'};font-weight:700;">${c.inversion.rentabilidad}%</td>
+          <td style="color:${c.inversion.rentabilidad >= 0 ? 'var(--success-green)' : 'var(--danger-red)'};font-weight:700;">${c.inversion.rentabilidad}% <button class="btn-secondary" style="padding:3px 7px;margin-left:5px;" onclick="abrirModalEditarRentabilidad(${c.id})" title="Editar rentabilidad"><i class="fa-solid fa-pen"></i></button></td>
         </tr>`).join('') : `<tr><td colspan="7" class="empty-state">No hay inversiones registradas.</td></tr>`}
       </tbody>
     </table></div>
   </div>`;
+}
+
+function abrirModalEditarRentabilidad(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  c.inversion = c.inversion || {};
+  openModal(`Editar Rentabilidad — ${escapeHTML(c.negocio.nombre)}`, `
+    <div class="field" style="margin-bottom:14px;">
+      <label>Rentabilidad acumulada (%)</label>
+      <input type="number" step="0.01" class="form-control" id="edit-rentabilidad" value="${Number(c.inversion.rentabilidad) || 0}">
+      <small style="color:var(--text-muted);">Puedes usar valores negativos si la inversión presenta pérdida.</small>
+    </div>
+    <button class="btn-main" onclick="guardarRentabilidad(${c.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar Rentabilidad</button>
+  `);
+}
+
+function guardarRentabilidad(id) {
+  const c = getCliente(id);
+  if (!c) return;
+  const input = el('edit-rentabilidad');
+  const valor = Number(input.value);
+  if (!Number.isFinite(valor) || valor < -100 || valor > 1000) {
+    mostrarNotificacion('La rentabilidad debe estar entre -100% y 1000%.', true);
+    return;
+  }
+  c.inversion = c.inversion || {};
+  c.inversion.rentabilidad = valor;
+  registrarAuditoria('Rentabilidad de inversión actualizada', `${c.negocio.nombre} — ${valor}%`);
+  guardarEstado();
+  closeModal();
+  mostrarNotificacion('Rentabilidad actualizada correctamente');
+  navegar('a-inversiones');
 }
 
 function abrirModalNuevaInversion() {
@@ -3249,6 +3484,7 @@ function asegurarDatosNuevos() {
   DB.pagos = Array.isArray(DB.pagos) ? DB.pagos : [];
   DB.alertas = Array.isArray(DB.alertas) ? DB.alertas : [];
   DB.notificaciones = Array.isArray(DB.notificaciones) ? DB.notificaciones : [];
+  DB.notificaciones.forEach(n => { n.leida = n.leida === true; });
   DB.solicitudesEdicion = Array.isArray(DB.solicitudesEdicion) ? DB.solicitudesEdicion : [];
   DB.capital = DB.capital || { total: 50000000, recuperado: 0 };
   DB.nextId = DB.nextId || {};
@@ -3270,12 +3506,39 @@ function notificacionesDeSesion() {
   return DB.notificaciones.filter(n => n.rol === SESSION.rol && (n.entidadId == null || n.entidadId === (SESSION.rol === 'client' ? SESSION.clienteId : SESSION.trabajadorId))).sort((a, b) => b.id - a.id);
 }
 
+function marcarNotificacionLeida(id) {
+  const n = DB.notificaciones.find(x => x.id === Number(id));
+  if (!n) return;
+  const visibles = notificacionesDeSesion();
+  if (!visibles.some(x => x.id === n.id)) return;
+  n.leida = true;
+  guardarEstado();
+  if (SESSION.rol === 'client') navegar('c-notificaciones');
+  else if (SESSION.rol === 'worker') navegar('w-notificaciones');
+}
+
+function marcarTodasNotificacionesLeidas() {
+  const visibles = notificacionesDeSesion();
+  const pendientes = visibles.filter(n => !n.leida);
+  if (!pendientes.length) {
+    mostrarNotificacion('No hay notificaciones sin leer.');
+    return;
+  }
+  pendientes.forEach(n => { n.leida = true; });
+  guardarEstado();
+  mostrarNotificacion(`${pendientes.length} notificación(es) marcada(s) como leída(s).`);
+  if (SESSION.rol === 'client') navegar('c-notificaciones');
+  else if (SESSION.rol === 'worker') navegar('w-notificaciones');
+}
+
 function renderNotificacionesSesion() {
-  const l = notificacionesDeSesion().slice(0, 20);
+  const l = notificacionesDeSesion().slice(0, 50);
+  const pendientes = l.filter(x => !x.leida).length;
+  const ruta = SESSION.rol === 'client' ? 'c-notificaciones' : SESSION.rol === 'worker' ? 'w-notificaciones' : 'a-dashboard';
   return `
   <div class="card-table">
-    <div class="card-table-header"><h3>Notificaciones</h3><span class="subtitle">${l.filter(x => !x.leida).length} sin leer</span></div>
-    ${l.length ? l.map(n => `<div class="risk-list-item"><div><b>${escapeHTML(n.titulo)}</b><p style="color:var(--text-muted);margin-top:4px;">${escapeHTML(n.mensaje)}</p></div><small>${fechaLarga(n.fecha)}</small></div>`).join('') : '<div class="empty-state">No tienes notificaciones.</div>'}
+    <div class="card-table-header"><h3>Notificaciones</h3><div style="display:flex;align-items:center;gap:8px;"><span class="subtitle">${pendientes} sin leer</span>${pendientes ? `<button class="btn-secondary" onclick="marcarTodasNotificacionesLeidas()"><i class="fa-solid fa-check-double"></i> Marcar todas como leídas</button>` : ''}</div></div>
+    ${l.length ? l.map(n => `<div class="risk-list-item" style="${n.leida ? 'opacity:.68;' : 'border-left:4px solid var(--gold);'}"><div style="flex:1;"><b>${escapeHTML(n.titulo)}</b><p style="color:var(--text-muted);margin-top:4px;">${escapeHTML(n.mensaje)}</p><div style="margin-top:7px;display:flex;gap:7px;align-items:center;"><span class="badge ${n.leida ? 'badge-green' : 'badge-amber'}">${n.leida ? 'Leída' : 'Sin leer'}</span>${!n.leida ? `<button class="btn-secondary" style="padding:3px 8px;font-size:.72rem;" onclick="marcarNotificacionLeida(${n.id})"><i class="fa-solid fa-check"></i> Marcar como leída</button>` : ''}</div></div><small>${fechaLarga(n.fecha)}</small></div>`).join('') : '<div class="empty-state">No tienes notificaciones.</div>'}
   </div>`;
 }
 
