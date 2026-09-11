@@ -721,6 +721,13 @@ function seccionContrato(numero, titulo, contenidoHtml) {
   </div>`;
 }
 
+const FIRMA_REPRESENTANTE_JORAN = 'data:image/png;base64,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';
+const REPRESENTANTE_JORAN = {
+  nombre: 'José Coronado',
+  documento: '1042851914',
+  cargo: 'Representante Legal'
+};
+
 function generarContratoHTML(c) {
   const i = c.inversion;
   const p = DB.parametros;
@@ -732,8 +739,8 @@ function generarContratoHTML(c) {
         <div class="cn-parte">
           <b>INVERSIONES JORAN</b>
           <p>Nombre: ${lineaOGuion(p.nombreEmpresa)}</p>
-          <p>Representante: <span class="linea-vacia"></span></p>
-          <p>C.C. N.°: <span class="linea-vacia"></span></p>
+          <p>Representante: <b>${lineaOGuion(REPRESENTANTE_JORAN.nombre)}</b></p>
+          <p>C.C. N.°: <b>${lineaOGuion(REPRESENTANTE_JORAN.documento)}</b></p>
         </div>
         <div class="cn-parte">
           <b>EL PROPIETARIO</b>
@@ -843,6 +850,8 @@ function generarContratoHTML(c) {
   .cn-firma-box{background:#f8fafc;border:1px solid var(--border-color);border-radius:10px;padding:16px;}
   .cn-firma-box h4{color:var(--navy);font-size:.78rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;border-bottom:2px solid var(--gold);padding-bottom:6px;display:inline-block;}
   .cn-firma-box p{font-size:.78rem;margin-bottom:16px;color:#334155;}
+  .cn-firma-imagen{display:block;width:150px;height:62px;object-fit:contain;object-position:left bottom;margin:-2px 0 2px 0;}
+  .cn-firma-datos{line-height:1.65;}
   .cn-firma-linea{border-top:1px solid #334155;margin-top:26px;padding-top:5px;font-size:.72rem;color:var(--text-muted);text-align:center;}
   .cn-pie{text-align:center;font-size:.68rem;color:var(--text-muted);padding:0 24px 26px;}
   @media(max-width:720px){.cn-cuerpo{grid-template-columns:1fr;}.cn-firmas{grid-template-columns:1fr;}}
@@ -883,8 +892,9 @@ function generarContratoHTML(c) {
     <div class="cn-firmas">
       <div class="cn-firma-box">
         <h4>Por Inversiones Joran</h4>
-        <p>Nombre: <span class="linea-vacia"></span><br><br>C.C. N.°: <span class="linea-vacia"></span><br><br>Cargo: <span class="linea-vacia"></span></p>
-        <div class="cn-firma-linea">Firma</div>
+        <img class="cn-firma-imagen" src="${FIRMA_REPRESENTANTE_JORAN}" alt="Firma de José Coronado">
+        <p class="cn-firma-datos">Nombre: <b>${lineaOGuion(REPRESENTANTE_JORAN.nombre)}</b><br>C.C. N.°: <b>${lineaOGuion(REPRESENTANTE_JORAN.documento)}</b><br>Cargo: <b>${lineaOGuion(REPRESENTANTE_JORAN.cargo)}</b></p>
+        <div class="cn-firma-linea">Firma del representante legal</div>
       </div>
       <div class="cn-firma-box">
         <h4>El Propietario</h4>
