@@ -1041,7 +1041,7 @@ function renderClienteAsociacion(c) {
       ${pendiente ? '<span class="badge badge-amber">Solicitud pendiente</span>' : ''}
     </div>
     <p style="font-size:.88rem;color:var(--text-muted);line-height:1.55;margin-bottom:18px;">
-      Si deseas presentar una propuesta de asociación al dueño o jefe de JORAN, completa el formulario. Tu información será revisada por la administración y, si existe interés, se pondrán en contacto contigo.
+      Si deseas presentar una propuesta de asociación al jefe de JORAN, completa el formulario. Tu información será revisada por la administración y, si existe interés, se pondrán en contacto contigo.
     </p>
     ${pendiente ? `<div style="background:#fff8e6;border:1px solid #f2d38a;border-radius:9px;padding:12px;margin-bottom:16px;font-size:.82rem;color:#6b4f00;"><b>Ya tienes una solicitud pendiente.</b> Puedes esperar la respuesta de la administración.</div>` : `
       <button class="btn-main" onclick="abrirModalSolicitudAsociacion(${c.id})"><i class="fa-solid fa-handshake"></i> Enviar propuesta de asociación</button>`}
@@ -1095,7 +1095,7 @@ function abrirModalSolicitudAsociacion(clienteId) {
         <div class="field"><label>¿Qué puedes aportar?</label><input class="form-control" id="aso-aporte" placeholder="Capital, experiencia, contactos, trabajo, etc."></div>
       </div>
       <div class="field"><label>¿Por qué quieres asociarte? *</label><textarea class="form-control" rows="3" id="aso-motivo"></textarea></div>
-      <div class="field"><label>Mensaje para el dueño o jefe</label><textarea class="form-control" rows="3" id="aso-mensaje"></textarea></div>
+      <div class="field"><label>Mensaje para el jefe</label><textarea class="form-control" rows="3" id="aso-mensaje"></textarea></div>
     </div>
     <button class="btn-main" onclick="enviarSolicitudAsociacion(${clienteId})"><i class="fa-solid fa-paper-plane"></i> Enviar propuesta</button>
   `);
@@ -1147,7 +1147,7 @@ function abrirModalSolicitudAsociacionAdmin(id) {
     ${field('Experiencia y habilidades', s.experiencia || '-')}
     ${field('Qué puede aportar', s.aporte || '-')}
     ${field('Por qué quiere asociarse', s.motivo || '-')}
-    ${field('Mensaje para el dueño o jefe', s.mensaje || '-')}
+    ${field('Mensaje para el jefe', s.mensaje || '-')}
     <div class="form-box">
       <h4>Respuesta de la administración</h4>
       <div class="field"><label>Estado</label><select class="form-control" id="aso-admin-estado"><option ${s.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option><option ${s.estado === 'Interesado' ? 'selected' : ''}>Interesado</option><option ${s.estado === 'No interesado' ? 'selected' : ''}>No interesado</option></select></div>
