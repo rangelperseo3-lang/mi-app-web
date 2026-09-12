@@ -5,6 +5,212 @@
 let SESSION = { rol: null, usuario: null, usuarioId: null, clienteId: null, trabajadorId: null, vista: null };
 const CHARTS = {};
 
+
+/* =========================================================
+   TEMA VISUAL JORAN — identidad corporativa
+   Azul marino + dorado del logo. Se aplica sin alterar la lógica.
+   ========================================================= */
+function aplicarTemaJoran() {
+  if (document.getElementById('joran-theme-v2')) return;
+  const style = document.createElement('style');
+  style.id = 'joran-theme-v2';
+  style.textContent = `
+    :root{
+      --joran-navy:#0B2A4A;
+      --joran-navy-2:#123B63;
+      --joran-navy-3:#071B31;
+      --joran-gold:#C9942E;
+      --joran-gold-2:#E0B44C;
+      --joran-bg:#F4F6F8;
+      --joran-card:#FFFFFF;
+      --joran-text:#1E293B;
+      --joran-muted:#64748B;
+      --joran-border:#E2E8F0;
+      --joran-shadow:0 8px 24px rgba(11,42,74,.08);
+      --joran-shadow-hover:0 12px 30px rgba(11,42,74,.14);
+      --navy:var(--joran-navy);
+      --navy-deep:var(--joran-navy-3);
+      --navy-mid:var(--joran-navy-2);
+      --gold:var(--joran-gold);
+      --gold-light:var(--joran-gold-2);
+      --text-main:var(--joran-text);
+      --text-muted:var(--joran-muted);
+      --border-color:var(--joran-border);
+    }
+
+    html{background:var(--joran-bg);}
+    body{background:var(--joran-bg)!important;color:var(--joran-text);}
+    button,.btn-main,.btn-secondary,.btn-danger,.nav-link,input,select,textarea{transition:all .18s ease;}
+
+    /* Cabecera */
+    #app-header,.app-header,.topbar,.header-bar{
+      background:rgba(255,255,255,.96)!important;
+      border-bottom:1px solid var(--joran-border)!important;
+      box-shadow:0 4px 18px rgba(11,42,74,.06)!important;
+      backdrop-filter:blur(10px);
+    }
+    #titulo-pagina{color:var(--joran-navy)!important;font-weight:800!important;letter-spacing:-.02em;}
+    #header-user-name{color:var(--joran-navy)!important;font-weight:800!important;}
+    #header-user-role{color:var(--joran-muted)!important;}
+    #header-avatar-initials{
+      background:linear-gradient(145deg,var(--joran-navy),var(--joran-navy-2))!important;
+      color:#fff!important;border:2px solid rgba(201,148,46,.35);
+      box-shadow:0 4px 12px rgba(11,42,74,.18);
+    }
+
+    /* Menú lateral */
+    #app-sidebar,.sidebar,.app-sidebar{
+      background:linear-gradient(180deg,var(--joran-navy-3) 0%,var(--joran-navy) 58%,#0D3155 100%)!important;
+      border-right:1px solid rgba(224,180,76,.16)!important;
+      box-shadow:8px 0 28px rgba(7,27,49,.12)!important;
+    }
+    #app-sidebar .brand,.sidebar .brand,.app-sidebar .brand{
+      color:#fff!important;
+    }
+    #app-sidebar .brand span,.sidebar .brand span,.app-sidebar .brand span{color:var(--joran-gold-2)!important;}
+    #menuLateral{padding:10px 10px 20px!important;}
+    #menuLateral li{margin:3px 0!important;}
+    #menuLateral .nav-link{
+      color:rgba(255,255,255,.78)!important;
+      border:1px solid transparent!important;
+      border-radius:11px!important;
+      padding:11px 13px!important;
+      font-weight:600!important;
+    }
+    #menuLateral .nav-link i{width:22px;text-align:center;color:rgba(224,180,76,.88)!important;}
+    #menuLateral .nav-link:hover{
+      color:#fff!important;background:rgba(255,255,255,.08)!important;
+      border-color:rgba(224,180,76,.16)!important;transform:translateX(2px);
+    }
+    #menuLateral .nav-link.active{
+      color:#fff!important;
+      background:linear-gradient(90deg,rgba(201,148,46,.22),rgba(255,255,255,.08))!important;
+      border-color:rgba(224,180,76,.32)!important;
+      box-shadow:inset 3px 0 0 var(--joran-gold-2),0 5px 16px rgba(0,0,0,.12)!important;
+    }
+    #menuLateral .nav-link.active i{color:var(--joran-gold-2)!important;}
+
+    /* Área principal */
+    #view-app{background:var(--joran-bg)!important;}
+    #content-container{color:var(--joran-text);}
+    .page-header,.content-header{margin-bottom:20px;}
+
+    /* Tarjetas */
+    .card-table,.card,.panel,.dashboard-card{
+      background:var(--joran-card)!important;
+      border:1px solid var(--joran-border)!important;
+      border-radius:16px!important;
+      box-shadow:var(--joran-shadow)!important;
+    }
+    .card-table:hover,.card:hover,.panel:hover,.dashboard-card:hover{box-shadow:var(--joran-shadow-hover)!important;}
+    .card-table-header{
+      padding:17px 19px!important;
+      border-bottom:1px solid var(--joran-border)!important;
+      background:linear-gradient(180deg,#fff,#fbfcfd)!important;
+    }
+    .card-table-header h3,.card h3,.panel h3{color:var(--joran-navy)!important;font-weight:800!important;}
+    .subtitle{color:var(--joran-muted)!important;}
+
+    /* Métricas */
+    .metrics-row{gap:16px!important;margin-bottom:18px!important;}
+    .metric-card,.metrics-card{
+      border:1px solid var(--joran-border)!important;
+      border-radius:15px!important;
+      box-shadow:var(--joran-shadow)!important;
+      background:#fff!important;
+    }
+    .metric-card:hover,.metrics-card:hover{transform:translateY(-2px);box-shadow:var(--joran-shadow-hover)!important;}
+
+    /* Botones */
+    .btn-main{
+      background:linear-gradient(135deg,var(--joran-navy),var(--joran-navy-2))!important;
+      color:#fff!important;border:1px solid var(--joran-navy)!important;
+      border-radius:9px!important;font-weight:700!important;
+      box-shadow:0 4px 12px rgba(11,42,74,.14)!important;
+    }
+    .btn-main:hover{filter:brightness(1.08);transform:translateY(-1px);box-shadow:0 7px 17px rgba(11,42,74,.2)!important;}
+    .btn-secondary{
+      background:#fff!important;color:var(--joran-navy)!important;
+      border:1px solid #CBD5E1!important;border-radius:9px!important;font-weight:700!important;
+    }
+    .btn-secondary:hover{background:#F8FAFC!important;border-color:var(--joran-gold)!important;color:var(--joran-navy)!important;}
+    .btn-danger{border-radius:9px!important;font-weight:700!important;}
+
+    /* Formularios */
+    .field label{color:var(--joran-navy)!important;font-weight:700!important;margin-bottom:6px!important;}
+    .form-control,input.form-control,select.form-control,textarea.form-control{
+      border:1px solid #CBD5E1!important;border-radius:9px!important;
+      background:#fff!important;color:var(--joran-text)!important;
+      box-shadow:0 1px 2px rgba(15,23,42,.03)!important;
+    }
+    .form-control:focus,input.form-control:focus,select.form-control:focus,textarea.form-control:focus{
+      border-color:var(--joran-gold)!important;
+      box-shadow:0 0 0 3px rgba(201,148,46,.14)!important;outline:none!important;
+    }
+
+    /* Tablas */
+    table{border-collapse:separate!important;border-spacing:0!important;}
+    table thead th{
+      background:#F8FAFC!important;color:var(--joran-navy)!important;
+      font-size:.76rem!important;font-weight:800!important;text-transform:uppercase;
+      letter-spacing:.03em;border-bottom:1px solid var(--joran-border)!important;
+    }
+    table tbody td{border-bottom:1px solid #EEF2F6!important;color:#334155;}
+    table tbody tr:hover td{background:#FCFDFE!important;}
+
+    /* Badges */
+    .badge{border-radius:999px!important;font-weight:800!important;padding:5px 9px!important;}
+    .badge-amber{background:#FFF7E6!important;color:#9A6700!important;border:1px solid #F3D38A!important;}
+    .badge-orange{background:#FFF1E8!important;color:#B45309!important;border:1px solid #F6C59D!important;}
+    .badge-green{background:#ECFDF3!important;color:#167A4A!important;border:1px solid #A7E3C2!important;}
+    .badge-red{background:#FFF0F0!important;color:#B42318!important;border:1px solid #F2B8B5!important;}
+
+    /* Modales */
+    #modal-overlay{background:rgba(7,27,49,.58)!important;backdrop-filter:blur(3px);}
+    #modal-box,.modal-box{
+      background:#fff!important;border:1px solid var(--joran-border)!important;
+      border-radius:18px!important;box-shadow:0 24px 70px rgba(7,27,49,.24)!important;
+    }
+    .modal-header{
+      background:linear-gradient(135deg,var(--joran-navy),var(--joran-navy-2))!important;
+      color:#fff!important;border-bottom:3px solid var(--joran-gold)!important;
+      border-radius:18px 18px 0 0!important;padding:17px 20px!important;
+    }
+    .modal-header h3{color:#fff!important;font-weight:800!important;}
+    .modal-close{color:#fff!important;opacity:.9;}
+
+    /* Notificaciones / toast */
+    #toast{border-left:4px solid var(--joran-gold)!important;border-radius:10px!important;box-shadow:0 12px 30px rgba(7,27,49,.18)!important;}
+
+    /* Chips, pestañas y estados vacíos */
+    .chip{border:1px solid var(--joran-border)!important;background:#F8FAFC!important;border-radius:999px!important;}
+    .tab-btn{color:var(--joran-muted)!important;border-bottom:2px solid transparent!important;font-weight:700!important;}
+    .tab-btn:hover{color:var(--joran-navy)!important;}
+    .tab-btn.active{color:var(--joran-navy)!important;border-bottom-color:var(--joran-gold)!important;}
+    .empty-state{color:var(--joran-muted)!important;padding:28px!important;}
+
+    /* Enlaces */
+    a{color:var(--joran-navy);}
+    a:hover{color:var(--joran-gold);}
+
+    /* Barra de actualización */
+    #banner-actualizacion{border-left:4px solid var(--joran-gold)!important;background:#FFF9EC!important;color:#6B4F0A!important;border-radius:10px!important;}
+
+    /* Responsive */
+    @media(max-width:900px){
+      #content-container{padding-left:14px!important;padding-right:14px!important;}
+      .metrics-row{grid-template-columns:repeat(2,minmax(0,1fr))!important;}
+    }
+    @media(max-width:620px){
+      .metrics-row{grid-template-columns:1fr!important;}
+      .card-table,.card,.panel,.dashboard-card{border-radius:13px!important;}
+      .card-table-header{padding:14px!important;}
+      .btn-main,.btn-secondary,.btn-danger{min-height:42px;}
+    }
+  `;
+  document.head.appendChild(style);
+}
+
 const DB = {
   clientes: [],
   trabajadores: [],
@@ -508,7 +714,7 @@ async function iniciarApp() {
   setInterval(guardarSesionLocal, 2000);
   window.addEventListener('beforeunload', guardarSesionLocal);
 }
-document.addEventListener('DOMContentLoaded', iniciarApp);
+document.addEventListener('DOMContentLoaded', () => { aplicarTemaJoran(); iniciarApp(); });
 
 /* =========================================================
    CLIENTE
