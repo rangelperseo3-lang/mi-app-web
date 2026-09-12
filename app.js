@@ -1037,7 +1037,7 @@ function renderClienteAsociacion(c) {
   return `
   <div class="card-table">
     <div class="card-table-header">
-      <h3>🤝 Quiero asociarme</h3>
+      <h3>Quiero asociarme</h3>
       ${pendiente ? '<span class="badge badge-amber">Solicitud pendiente</span>' : ''}
     </div>
     <p style="font-size:.88rem;color:var(--text-muted);line-height:1.55;margin-bottom:18px;">
