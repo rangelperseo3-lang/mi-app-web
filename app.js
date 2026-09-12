@@ -15,6 +15,7 @@ const DB = {
   alertas: [],
   notificaciones: [],
   solicitudesEdicion: [],
+  solicitudesAsociacion: [],
   auditoria: [],
   capital: { total: 50000000, recuperado: 0 },
   categorias: ['Tienda de barrio', 'Panadería', 'Barbería', 'Papelería', 'Restaurante', 'Ferretería', 'Otro'],
@@ -22,11 +23,10 @@ const DB = {
     moneda: 'COP', periodoSeguimiento: 'Semanal', metaCumplimientoMinimo: 80, nombreEmpresa: 'INVERSIONES JORAN S.A.S.',
     mesesMinimoFuncionamiento: 6, puntajeMinimoAprobacion: 70, montoMaximoInversion: 20000000,
     reglamentoTexto: 'Toda inversión debe destinarse exclusivamente al fin declarado por el cliente. El incumplimiento de compromisos o el hallazgo de información inconsistente puede derivar en la suspensión del desembolso o la liquidación anticipada del contrato.',
-    politicaDatos: 'INVERSIONES JORAN S.A.S. recolecta datos personales y financieros de clientes únicamente para evaluar, aprobar y hacer seguimiento a sus inversiones. La información se almacena de forma segura, solo el personal autorizado según su rol puede consultarla o modificarla, y no se comparte con terceros sin autorización del titular, salvo requerimiento legal.',
-    representanteNombre: '', representanteDocumento: '', representanteCargo: 'Representante Legal', representanteFirma: null
+    politicaDatos: 'INVERSIONES JORAN S.A.S. recolecta datos personales y financieros de clientes únicamente para evaluar, aprobar y hacer seguimiento a sus inversiones. La información se almacena de forma segura, solo el personal autorizado según su rol puede consultarla o modificarla, y no se comparte con terceros sin autorización del titular, salvo requerimiento legal.'
   },
   permisos: { client: {}, worker: {}, admin: {} },
-  nextId: { cliente: 1, trabajador: 1, seguimiento: 1, usuario: 1, solicitud: 1, solicitudInversion: 1, pago: 1, alerta: 1, notificacion: 1 }
+  nextId: { cliente: 1, trabajador: 1, seguimiento: 1, usuario: 1, solicitud: 1, solicitudInversion: 1, pago: 1, alerta: 1, notificacion: 1, solicitudAsociacion: 1 }
 };
 
 const SESSION_KEY = 'joran_sesion_v1';
@@ -530,7 +530,8 @@ function initClienteUI() {
     { id: 'c-metas', label: 'Mis Metas', icon: 'fa-bullseye' },
     { id: 'c-seguimientos', label: 'Seguimientos', icon: 'fa-list-check' },
     { id: 'c-perfil', label: 'Mi Perfil', icon: 'fa-user' },
-    { id: 'c-notificaciones', label: 'Notificaciones', icon: 'fa-bell' }
+    { id: 'c-notificaciones', label: 'Notificaciones', icon: 'fa-bell' },
+    { id: 'c-asociacion', label: 'Quiero asociarme', icon: 'fa-handshake' }
   ]);
   CURRENT_ROLE_ROUTES = {
     'c-inicio': { titulo: `Portal del Cliente - ${c.negocio.nombre}`, render: () => renderClienteInicio(c) },
@@ -540,7 +541,8 @@ function initClienteUI() {
     'c-metas': { titulo: 'Mis Metas', render: () => renderClienteMetas(c) },
     'c-seguimientos': { titulo: 'Historial de Seguimientos', render: () => renderClienteSeguimientos(c) },
     'c-perfil': { titulo: 'Mi Perfil', render: () => renderClientePerfil(c) },
-    'c-notificaciones': { titulo: 'Mis Notificaciones', render: () => renderNotificacionesSesion() }
+    'c-notificaciones': { titulo: 'Mis Notificaciones', render: () => renderNotificacionesSesion() },
+    'c-asociacion': { titulo: 'Quiero asociarme', render: () => renderClienteAsociacion(c) }
   };
   navegarInicial('c-inicio');
 }
@@ -722,15 +724,17 @@ function seccionContrato(numero, titulo, contenidoHtml) {
   </div>`;
 }
 
-function numeroContratoDe(c) {
-  return `CI-${String(c.id).padStart(4, '0')}-${fechaHoyLocal().replace(/-/g, '')}`;
-}
+const FIRMA_REPRESENTANTE_JORAN = 'data:image/png;base64,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';
+const REPRESENTANTE_JORAN = {
+  nombre: 'José Coronado',
+  documento: '1042851914',
+  cargo: 'Representante Legal'
+};
 
 function generarContratoHTML(c) {
   const i = c.inversion;
   const p = DB.parametros;
   const hoy = fechaLarga(fechaHoyLocal());
-  const numeroContrato = numeroContratoDe(c);
 
   const col1 = [
     seccionContrato(1, 'Identificación de las Partes', `
@@ -738,8 +742,8 @@ function generarContratoHTML(c) {
         <div class="cn-parte">
           <b>INVERSIONES JORAN</b>
           <p>Nombre: ${lineaOGuion(p.nombreEmpresa)}</p>
-          <p>Representante: ${lineaOGuion(p.representanteNombre)}</p>
-          <p>C.C. N.°: ${lineaOGuion(p.representanteDocumento)}</p>
+          <p>Representante: <b>${lineaOGuion(REPRESENTANTE_JORAN.nombre)}</b></p>
+          <p>C.C. N.°: <b>${lineaOGuion(REPRESENTANTE_JORAN.documento)}</b></p>
         </div>
         <div class="cn-parte">
           <b>EL PROPIETARIO</b>
@@ -821,17 +825,16 @@ function generarContratoHTML(c) {
   .cn-esquina::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,transparent 48%,var(--gold) 49%,var(--gold) 51%,transparent 52%);}
   .cn-esquina.izq{left:0;clip-path:polygon(0 0,100% 0,0 100%);}
   .cn-esquina.der{right:0;clip-path:polygon(100% 0,100% 100%,0 0);}
-  .cn-membrete{padding:34px 30px 6px;text-align:center;position:relative;}
+  .cn-membrete{padding:34px 30px 20px;text-align:center;position:relative;}
   .cn-logo{width:64px;height:64px;border-radius:50%;margin:0 auto 10px;background:linear-gradient(160deg,var(--navy-mid),var(--navy-deep));border:2px solid var(--gold);color:var(--gold);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:1.3rem;}
   .cn-membrete h1{color:var(--navy);font-size:1.05rem;letter-spacing:2px;font-weight:800;}
   .cn-membrete .cn-sub{color:var(--text-muted);font-size:.72rem;letter-spacing:3px;text-transform:uppercase;margin-top:2px;}
-  .cn-numero-doc{text-align:center;font-size:.68rem;color:var(--text-muted);letter-spacing:1px;margin:8px 0 18px;}
   .cn-titulo-banner{background:linear-gradient(120deg,var(--navy-deep),var(--navy));color:#fff;text-align:center;padding:16px 20px;margin:0 24px 22px;border-radius:10px;border-bottom:4px solid var(--gold);}
   .cn-titulo-banner h2{font-size:1.35rem;letter-spacing:1px;font-weight:800;}
   .cn-titulo-banner span{font-size:.78rem;color:var(--gold-light);letter-spacing:2px;text-transform:uppercase;}
   .cn-intro{padding:0 30px 20px;font-size:.86rem;line-height:1.6;color:#334155;}
   .cn-cuerpo{display:grid;grid-template-columns:1fr 1fr;gap:0 22px;padding:0 24px 10px;}
-  .cn-seccion{margin-bottom:16px;page-break-inside:avoid;break-inside:avoid;}
+  .cn-seccion{margin-bottom:16px;}
   .cn-seccion-titulo{background:var(--navy);color:#fff;font-size:.78rem;font-weight:800;letter-spacing:.3px;padding:8px 12px;border-radius:6px;display:flex;align-items:center;gap:8px;text-transform:uppercase;}
   .cn-numero{background:var(--gold);color:var(--navy-deep);width:20px;height:20px;border-radius:50%;display:inline-flex;align-items:center;justify-content:center;font-size:.72rem;font-weight:900;flex-shrink:0;}
   .cn-seccion-cuerpo{font-size:.8rem;line-height:1.55;color:#334155;padding:9px 4px 0;}
@@ -847,7 +850,7 @@ function generarContratoHTML(c) {
   .linea-vacia{display:inline-block;min-width:140px;border-bottom:1px solid #94a3b8;}
   .linea-vacia.corta{min-width:70px;}
   .cn-firmas{display:grid;grid-template-columns:1fr 1fr;gap:20px;padding:10px 24px 30px;}
-  .cn-firma-box{background:#f8fafc;border:1px solid var(--border-color);border-radius:10px;padding:16px;page-break-inside:avoid;break-inside:avoid;}
+  .cn-firma-box{background:#f8fafc;border:1px solid var(--border-color);border-radius:10px;padding:16px;}
   .cn-firma-box h4{color:var(--navy);font-size:.78rem;text-transform:uppercase;letter-spacing:.4px;margin-bottom:10px;border-bottom:2px solid var(--gold);padding-bottom:6px;display:inline-block;}
   .cn-firma-box p{font-size:.78rem;margin-bottom:16px;color:#334155;}
   .cn-firma-imagen{display:block;width:150px;height:62px;object-fit:contain;object-position:left bottom;margin:-2px 0 2px 0;}
@@ -860,7 +863,6 @@ function generarContratoHTML(c) {
     .cn-toolbar{display:none;}
     .cn-hoja{box-shadow:none;border-radius:0;max-width:100%;}
     .cn-cuerpo{grid-template-columns:1fr 1fr;}
-    .cn-titulo-banner{break-after:avoid;}
   }
 </style>
 </head>
@@ -877,7 +879,6 @@ function generarContratoHTML(c) {
       <h1>JORAN INVERSIONES</h1>
       <div class="cn-sub">Plataforma de gestión PyMEs</div>
     </div>
-    <div class="cn-numero-doc">Documento N.° ${numeroContrato}</div>
     <div class="cn-titulo-banner">
       <h2>CONTRATO DE INVERSIÓN</h2>
       <span>Inversiones Joran</span>
@@ -894,8 +895,8 @@ function generarContratoHTML(c) {
     <div class="cn-firmas">
       <div class="cn-firma-box">
         <h4>Por Inversiones Joran</h4>
-        ${p.representanteFirma ? `<img class="cn-firma-imagen" src="${p.representanteFirma}" alt="Firma del representante legal">` : ''}
-        <p class="cn-firma-datos">Nombre: ${lineaOGuion(p.representanteNombre)}<br>C.C. N.°: ${lineaOGuion(p.representanteDocumento)}<br>Cargo: ${lineaOGuion(p.representanteCargo || 'Representante Legal')}</p>
+        <img class="cn-firma-imagen" src="${FIRMA_REPRESENTANTE_JORAN}" alt="Firma de José Coronado">
+        <p class="cn-firma-datos">Nombre: <b>${lineaOGuion(REPRESENTANTE_JORAN.nombre)}</b><br>C.C. N.°: <b>${lineaOGuion(REPRESENTANTE_JORAN.documento)}</b><br>Cargo: <b>${lineaOGuion(REPRESENTANTE_JORAN.cargo)}</b></p>
         <div class="cn-firma-linea">Firma del representante legal</div>
       </div>
       <div class="cn-firma-box">
@@ -913,7 +914,7 @@ function generarContratoHTML(c) {
 function numeroALetraPorciento(n) {
   const num = Number(n) || 0;
   const unidades = ['cero','uno','dos','tres','cuatro','cinco','seis','siete','ocho','nueve','diez','once','doce','trece','catorce','quince','dieciséis','diecisiete','dieciocho','diecinueve','veinte'];
-  if (Number.isInteger(num) && num >= 0 && num <= 20) return `${unidades[num]} por ciento`;
+  if (num >= 0 && num <= 20) return `${unidades[num]} por ciento`;
   return `${num} por ciento`;
 }
 
@@ -1026,6 +1027,151 @@ function guardarPerfilCliente(id) {
   mostrarNotificacion('Perfil actualizado correctamente');
 }
 
+
+/* =========================================================
+   SOLICITUDES DE ASOCIACIÓN
+   ========================================================= */
+function renderClienteAsociacion(c) {
+  const solicitudes = (DB.solicitudesAsociacion || []).filter(s => Number(s.clienteId) === Number(c.id)).sort((a,b) => b.id - a.id);
+  const pendiente = solicitudes.find(s => s.estado === 'Pendiente');
+  return `
+  <div class="card-table">
+    <div class="card-table-header">
+      <h3>🤝 Quiero asociarme</h3>
+      ${pendiente ? '<span class="badge badge-amber">Solicitud pendiente</span>' : ''}
+    </div>
+    <p style="font-size:.88rem;color:var(--text-muted);line-height:1.55;margin-bottom:18px;">
+      Si deseas presentar una propuesta de asociación al dueño o jefe de JORAN, completa el formulario. Tu información será revisada por la administración y, si existe interés, se pondrán en contacto contigo.
+    </p>
+    ${pendiente ? `<div style="background:#fff8e6;border:1px solid #f2d38a;border-radius:9px;padding:12px;margin-bottom:16px;font-size:.82rem;color:#6b4f00;"><b>Ya tienes una solicitud pendiente.</b> Puedes esperar la respuesta de la administración.</div>` : `
+      <button class="btn-main" onclick="abrirModalSolicitudAsociacion(${c.id})"><i class="fa-solid fa-handshake"></i> Enviar propuesta de asociación</button>`}
+  </div>
+  ${solicitudes.length ? `
+  <div class="card-table">
+    <div class="card-table-header"><h3>Mis solicitudes de asociación</h3></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Tipo</th><th>Estado</th><th>Respuesta</th></tr></thead>
+      <tbody>${solicitudes.map(s => `<tr>
+        <td>${fechaLarga(s.fecha)}</td>
+        <td>${escapeHTML(s.tipoAsociacion || '-')}</td>
+        <td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : s.estado === 'Interesado' ? '<span class="badge badge-green">Interesado</span>' : '<span class="badge badge-red">No interesado</span>'}</td>
+        <td>${s.respuesta ? escapeHTML(s.respuesta) : '<span style="color:var(--text-muted);">Sin respuesta aún</span>'}</td>
+      </tr>`).join('')}</tbody>
+    </table></div>
+  </div>` : ''}`;
+}
+
+function abrirModalSolicitudAsociacion(clienteId) {
+  const c = getCliente(clienteId);
+  if (!c) return;
+  const pendiente = (DB.solicitudesAsociacion || []).some(s => Number(s.clienteId) === Number(clienteId) && s.estado === 'Pendiente');
+  if (pendiente) { mostrarNotificacion('Ya tienes una solicitud de asociación pendiente.', true); return; }
+  openModal('Solicitud de Asociación', `
+    <p style="font-size:.82rem;color:var(--text-muted);margin-bottom:14px;">Completa tus datos para presentar tu propuesta. No envíes contraseñas, documentos de identidad ni información bancaria.</p>
+    <div class="form-box">
+      <h4>Datos de contacto</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>Nombre completo *</label><input class="form-control" id="aso-nombre" value="${escapeHTML(c.nombre || '')}"></div>
+        <div class="field"><label>Teléfono *</label><input class="form-control" id="aso-telefono" value="${escapeHTML(c.telefono || '')}"></div>
+        <div class="field"><label>Correo *</label><input type="email" class="form-control" id="aso-correo" value="${escapeHTML(c.correo || '')}"></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><label>Ciudad</label><input class="form-control" id="aso-ciudad" value="${escapeHTML(c.negocio?.ciudad || '')}"></div>
+        <div class="field"><label>Medio preferido de contacto</label><select class="form-control" id="aso-contacto"><option>Teléfono</option><option>WhatsApp</option><option>Correo electrónico</option></select></div>
+      </div>
+    </div>
+    <div class="form-box">
+      <h4>Información profesional</h4>
+      <div class="form-grid-2">
+        <div class="field"><label>Ocupación / profesión</label><input class="form-control" id="aso-ocupacion"></div>
+        <div class="field"><label>Tiempo disponible</label><select class="form-control" id="aso-tiempo"><option>Tiempo completo</option><option>Medio tiempo</option><option>Por horas</option><option>Por proyecto</option></select></div>
+      </div>
+      <div class="field"><label>Experiencia y habilidades</label><textarea class="form-control" rows="3" id="aso-experiencia" placeholder="Cuéntanos brevemente tu experiencia y qué sabes hacer."></textarea></div>
+    </div>
+    <div class="form-box">
+      <h4>Propuesta de asociación</h4>
+      <div class="form-grid-2">
+        <div class="field"><label>Tipo de asociación *</label><select class="form-control" id="aso-tipo"><option>Socio</option><option>Inversionista</option><option>Aliado comercial</option><option>Administrador / gestor</option><option>Otra</option></select></div>
+        <div class="field"><label>¿Qué puedes aportar?</label><input class="form-control" id="aso-aporte" placeholder="Capital, experiencia, contactos, trabajo, etc."></div>
+      </div>
+      <div class="field"><label>¿Por qué quieres asociarte? *</label><textarea class="form-control" rows="3" id="aso-motivo"></textarea></div>
+      <div class="field"><label>Mensaje para el dueño o jefe</label><textarea class="form-control" rows="3" id="aso-mensaje"></textarea></div>
+    </div>
+    <button class="btn-main" onclick="enviarSolicitudAsociacion(${clienteId})"><i class="fa-solid fa-paper-plane"></i> Enviar propuesta</button>
+  `);
+}
+
+function enviarSolicitudAsociacion(clienteId) {
+  asegurarDatosNuevos();
+  const c = getCliente(clienteId);
+  if (!c) return;
+  if ((DB.solicitudesAsociacion || []).some(s => Number(s.clienteId) === Number(clienteId) && s.estado === 'Pendiente')) {
+    mostrarNotificacion('Ya tienes una solicitud de asociación pendiente.', true); return;
+  }
+  const nombre = el('aso-nombre').value.trim();
+  const telefono = el('aso-telefono').value.trim();
+  const correo = el('aso-correo').value.trim();
+  const motivo = el('aso-motivo').value.trim();
+  const tipo = el('aso-tipo').value;
+  if (!nombre || !telefono || !correo || !motivo || !tipo) {
+    mostrarNotificacion('Completa los campos obligatorios (*).', true); return;
+  }
+  const solicitud = {
+    id: DB.nextId.solicitudAsociacion++, clienteId: Number(clienteId),
+    clienteNombre: nombre, telefono, correo,
+    ciudad: el('aso-ciudad').value.trim(), medioContacto: el('aso-contacto').value,
+    ocupacion: el('aso-ocupacion').value.trim(), tiempoDisponible: el('aso-tiempo').value,
+    experiencia: el('aso-experiencia').value.trim(), tipoAsociacion: tipo,
+    aporte: el('aso-aporte').value.trim(), motivo, mensaje: el('aso-mensaje').value.trim(),
+    fecha: fechaHoyLocal(), estado: 'Pendiente', respuesta: '', fechaRespuesta: null
+  };
+  DB.solicitudesAsociacion.unshift(solicitud);
+  crearNotificacion('admin', null, 'Nueva solicitud de asociación', `${nombre} desea presentar una propuesta de asociación.`, 'asociacion');
+  registrarAuditoria('Solicitud de asociación enviada', `${nombre} — ${tipo}`);
+  guardarEstado(); closeModal(); mostrarNotificacion('Propuesta enviada correctamente'); navegar('c-asociacion');
+}
+
+function abrirModalSolicitudAsociacionAdmin(id) {
+  const s = (DB.solicitudesAsociacion || []).find(x => x.id === Number(id));
+  if (!s) return;
+  openModal(`Solicitud de Asociación — ${escapeHTML(s.clienteNombre)}`, `
+    <div class="form-grid-3">
+      ${field('Nombre', s.clienteNombre)}${field('Teléfono', s.telefono)}${field('Correo', s.correo)}
+    </div>
+    <div class="form-grid-3">
+      ${field('Ciudad', s.ciudad || '-')} ${field('Medio de contacto', s.medioContacto || '-')} ${field('Tipo de asociación', s.tipoAsociacion || '-')}
+    </div>
+    <div class="form-grid-2">
+      ${field('Ocupación / profesión', s.ocupacion || '-')} ${field('Tiempo disponible', s.tiempoDisponible || '-')}
+    </div>
+    ${field('Experiencia y habilidades', s.experiencia || '-')}
+    ${field('Qué puede aportar', s.aporte || '-')}
+    ${field('Por qué quiere asociarse', s.motivo || '-')}
+    ${field('Mensaje para el dueño o jefe', s.mensaje || '-')}
+    <div class="form-box">
+      <h4>Respuesta de la administración</h4>
+      <div class="field"><label>Estado</label><select class="form-control" id="aso-admin-estado"><option ${s.estado === 'Pendiente' ? 'selected' : ''}>Pendiente</option><option ${s.estado === 'Interesado' ? 'selected' : ''}>Interesado</option><option ${s.estado === 'No interesado' ? 'selected' : ''}>No interesado</option></select></div>
+      <div class="field"><label>Mensaje / indicación para el cliente</label><textarea class="form-control" rows="3" id="aso-admin-respuesta" placeholder="Ej: Nos interesa tu propuesta. Te contactaremos por teléfono.">${escapeHTML(s.respuesta || '')}</textarea></div>
+    </div>
+    <div style="display:flex;justify-content:flex-end;gap:10px;">
+      <button class="btn-secondary" onclick="closeModal()">Cerrar</button>
+      <button class="btn-main" onclick="guardarRespuestaAsociacion(${s.id})"><i class="fa-solid fa-floppy-disk"></i> Guardar respuesta</button>
+    </div>
+  `);
+}
+
+function guardarRespuestaAsociacion(id) {
+  const s = (DB.solicitudesAsociacion || []).find(x => x.id === Number(id));
+  if (!s) return;
+  const estado = el('aso-admin-estado').value;
+  const respuesta = el('aso-admin-respuesta').value.trim();
+  if (!respuesta && estado !== 'Pendiente') { mostrarNotificacion('Escribe un mensaje para el cliente.', true); return; }
+  s.estado = estado; s.respuesta = respuesta; s.fechaRespuesta = fechaHoyLocal();
+  crearNotificacion('client', s.clienteId, 'Respuesta a tu solicitud de asociación', respuesta || `Tu solicitud está en estado: ${estado}.`, 'asociacion');
+  registrarAuditoria('Solicitud de asociación respondida', `${s.clienteNombre} — ${estado}`);
+  guardarEstado(); closeModal(); mostrarNotificacion('Respuesta guardada y cliente notificado'); navegar('a-asociaciones');
+}
+
 /* =========================================================
    TRABAJADOR
    ========================================================= */
@@ -1134,6 +1280,24 @@ function renderTrabajadorInicio(t) {
         <div class="field"><label>Recomendaciones</label><textarea class="form-control" rows="2" id="seg-recomendaciones"></textarea></div>
         <div class="field"><label>Compromisos</label><textarea class="form-control" rows="2" id="seg-compromisos"></textarea></div>
       </div>
+    </div>
+
+    <div class="form-box">
+      <h4>Control de Pérdidas del Negocio</h4>
+      <div class="form-grid-3">
+        <div class="field"><label>¿El negocio tuvo pérdidas esta semana?</label><select class="form-control" id="seg-perdidas"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+        <div class="field"><label>Monto aproximado de la pérdida</label><input type="number" min="0" class="form-control" id="seg-monto-perdida" placeholder="0"></div>
+        <div class="field"><label>Tipo de pérdida</label><select class="form-control" id="seg-tipo-perdida"><option>Operativa</option><option>Financiera</option><option>Inventario</option><option>Ventas</option><option>Otra</option></select></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><label>Motivo de la pérdida</label><input type="text" class="form-control" id="seg-motivo-perdida" placeholder="Ej: bajas ventas, mercancía dañada, gastos altos..."></div>
+        <div class="field"><label>¿La pérdida afecta la inversión?</label><select class="form-control" id="seg-afecta-inversion"><option value="No">No</option><option value="Sí">Sí</option></select></div>
+      </div>
+      <div class="form-grid-2">
+        <div class="field"><label>Descripción de la pérdida</label><textarea class="form-control" rows="2" id="seg-descripcion-perdida"></textarea></div>
+        <div class="field"><label>Acción para recuperar o reducir la pérdida</label><textarea class="form-control" rows="2" id="seg-accion-perdida"></textarea></div>
+      </div>
+      <div class="field"><label>Observaciones sobre la pérdida</label><textarea class="form-control" rows="2" id="seg-observaciones-perdida"></textarea></div>
     </div>
 
     <div class="form-box">
@@ -1313,6 +1477,14 @@ function guardarSeguimientoTrabajador(trabajadorId) {
     necesidades: el('seg-necesidades').value.trim(),
     recomendaciones: el('seg-recomendaciones').value.trim(),
     compromisos: el('seg-compromisos').value.trim(),
+    perdidas: el('seg-perdidas').value === 'Sí',
+    montoPerdida: Number(el('seg-monto-perdida').value) || 0,
+    tipoPerdida: el('seg-tipo-perdida').value,
+    motivoPerdida: el('seg-motivo-perdida').value.trim(),
+    afectaInversion: el('seg-afecta-inversion').value === 'Sí',
+    descripcionPerdida: el('seg-descripcion-perdida').value.trim(),
+    accionPerdida: el('seg-accion-perdida').value.trim(),
+    observacionesPerdida: el('seg-observaciones-perdida').value.trim(),
     evidencias: {
       fotos: EVID_TEMP.fotos.slice(),
       documentos: EVID_TEMP.documentos.slice(),
@@ -1536,6 +1708,15 @@ function verSeguimientoDetalle(id) {
       ${field('Recomendaciones', s.recomendaciones)}
       ${field('Compromisos', s.compromisos)}
     </div>
+    <div class="form-box">
+      <h4>Control de Pérdidas</h4>
+      <div class="form-grid-3">
+        ${field('¿Tuvo pérdidas?', s.perdidas ? 'Sí' : 'No')}
+        ${field('Monto aproximado', s.perdidas ? formatCOP(s.montoPerdida || 0) : formatCOP(0))}
+        ${field('Tipo de pérdida', s.perdidas ? (s.tipoPerdida || '-') : '-')}
+      </div>
+      ${s.perdidas ? `<div class="form-grid-2">${field('Motivo', s.motivoPerdida)}${field('¿Afecta la inversión?', s.afectaInversion ? 'Sí' : 'No')}</div>${field('Descripción', s.descripcionPerdida)}${field('Acción para recuperar o reducir la pérdida', s.accionPerdida)}${field('Observaciones sobre la pérdida', s.observacionesPerdida)}` : '<p style="color:var(--text-muted);font-size:.8rem;">No se reportaron pérdidas en este seguimiento.</p>'}
+    </div>
     <div class="form-box" style="margin-bottom:0;">
       <h4>Evidencias y Adjuntos</h4>
       <p style="font-size:.78rem;color:var(--text-muted);margin-bottom:8px;">Fotos (${(ev.fotos||[]).length}), Documentos (${(ev.documentos||[]).length}), Facturas (${(ev.facturas||[]).length})</p>
@@ -1587,6 +1768,21 @@ function editarSeguimiento(id) {
       <div class="field"><label>Necesidades</label><textarea class="form-control" rows=2 id="edseg-necesidades">${escapeHTML(s.necesidades || '')}</textarea></div>
       <div class="field"><label>Recomendaciones</label><textarea class="form-control" rows=2 id="edseg-recomendaciones">${escapeHTML(s.recomendaciones || '')}</textarea></div>
       <div class="field"><label>Compromisos</label><textarea class="form-control" rows=2 id="edseg-compromisos">${escapeHTML(s.compromisos || '')}</textarea></div>
+      <div class="form-box">
+        <h4>Control de Pérdidas</h4>
+        <div class="form-grid-3">
+          <div class="field"><label>¿Tuvo pérdidas?</label><select class="form-control" id="edseg-perdidas"><option value="No" ${!s.perdidas ? 'selected' : ''}>No</option><option value="Sí" ${s.perdidas ? 'selected' : ''}>Sí</option></select></div>
+          <div class="field"><label>Monto aproximado</label><input type="number" min="0" class="form-control" id="edseg-monto-perdida" value="${Number(s.montoPerdida)||0}"></div>
+          <div class="field"><label>Tipo de pérdida</label><select class="form-control" id="edseg-tipo-perdida">${['Operativa','Financiera','Inventario','Ventas','Otra'].map(v=>`<option ${s.tipoPerdida===v?'selected':''}>${v}</option>`).join('')}</select></div>
+        </div>
+        <div class="form-grid-2">
+          <div class="field"><label>Motivo</label><input class="form-control" id="edseg-motivo-perdida" value="${escapeHTML(s.motivoPerdida||'')}"></div>
+          <div class="field"><label>¿Afecta la inversión?</label><select class="form-control" id="edseg-afecta-inversion"><option value="No" ${!s.afectaInversion?'selected':''}>No</option><option value="Sí" ${s.afectaInversion?'selected':''}>Sí</option></select></div>
+        </div>
+        <div class="field"><label>Descripción</label><textarea class="form-control" rows=2 id="edseg-descripcion-perdida">${escapeHTML(s.descripcionPerdida||'')}</textarea></div>
+        <div class="field"><label>Acción para recuperar o reducir la pérdida</label><textarea class="form-control" rows=2 id="edseg-accion-perdida">${escapeHTML(s.accionPerdida||'')}</textarea></div>
+        <div class="field"><label>Observaciones sobre la pérdida</label><textarea class="form-control" rows=2 id="edseg-observaciones-perdida">${escapeHTML(s.observacionesPerdida||'')}</textarea></div>
+      </div>
       <div class="field"><label>Observaciones generales</label><textarea class="form-control" rows=2 id="edseg-observaciones">${escapeHTML((s.evidencias && s.evidencias.observaciones) || '')}</textarea></div>
     </div>
     <p style="font-size:.76rem;color:var(--text-muted);margin-bottom:12px;">Las evidencias adjuntas existentes se conservan. Para agregar nuevas evidencias, utiliza un nuevo seguimiento.</p>
@@ -1625,6 +1821,15 @@ function guardarEdicionSeguimiento(id) {
   s.necesidades = el('edseg-necesidades').value.trim();
   s.recomendaciones = el('edseg-recomendaciones').value.trim();
   s.compromisos = el('edseg-compromisos').value.trim();
+  s.perdidas = el('edseg-perdidas').value === 'Sí';
+  s.montoPerdida = Number(el('edseg-monto-perdida').value) || 0;
+  s.tipoPerdida = el('edseg-tipo-perdida').value;
+  s.motivoPerdida = el('edseg-motivo-perdida').value.trim();
+  s.afectaInversion = el('edseg-afecta-inversion').value === 'Sí';
+  s.descripcionPerdida = el('edseg-descripcion-perdida').value.trim();
+  s.accionPerdida = el('edseg-accion-perdida').value.trim();
+  s.observacionesPerdida = el('edseg-observaciones-perdida').value.trim();
+  if (!s.perdidas) { s.montoPerdida = 0; s.motivoPerdida = ''; s.descripcionPerdida = ''; s.accionPerdida = ''; s.observacionesPerdida = ''; s.afectaInversion = false; }
   s.evidencias = s.evidencias || { fotos: [], documentos: [], facturas: [], observaciones: '' };
   s.evidencias.observaciones = el('edseg-observaciones').value.trim();
 
@@ -1682,6 +1887,7 @@ function initAdminUI() {
     { id: 'a-trabajadores', label: 'Trabajadores', icon: 'fa-user-tie' },
     { id: 'a-inversiones', label: 'Inversiones', icon: 'fa-hand-holding-dollar' },
     { id: 'a-solicitudes', label: 'Solicitudes', icon: 'fa-clipboard-check' },
+    { id: 'a-asociaciones', label: 'Asociaciones', icon: 'fa-handshake' },
     { id: 'a-pagos', label: 'Pagos y Cartera', icon: 'fa-wallet' },
     { id: 'a-alertas', label: 'Alertas', icon: 'fa-triangle-exclamation' },
     { id: 'a-seguimientos', label: 'Seguimientos', icon: 'fa-list-check' },
@@ -1695,6 +1901,7 @@ function initAdminUI() {
     'a-trabajadores': { titulo: 'Gestión de Trabajadores de Campo', render: () => renderAdminTrabajadores() },
     'a-inversiones': { titulo: 'Control de Inversiones Activas', render: () => renderAdminInversiones() },
     'a-solicitudes': { titulo: 'Solicitudes de Inversión', render: () => renderAdminSolicitudes() },
+    'a-asociaciones': { titulo: 'Solicitudes de Asociación', render: () => renderAdminAsociaciones() },
     'a-pagos': { titulo: 'Pagos y Cartera', render: () => renderAdminPagos() },
     'a-alertas': { titulo: 'Centro de Alertas de Negocios', render: () => renderAdminAlertas() },
     'a-seguimientos': { titulo: 'Seguimientos en Campo', render: () => renderAdminSeguimientos() },
@@ -1868,6 +2075,35 @@ function guardarRespuestaSolicitud(id) {
   navegar('a-dashboard');
 }
 
+
+function renderAdminAsociaciones() {
+  asegurarDatosNuevos();
+  const list = [...DB.solicitudesAsociacion].sort((a,b) => b.id - a.id);
+  const pendientes = list.filter(s => s.estado === 'Pendiente').length;
+  const interesados = list.filter(s => s.estado === 'Interesado').length;
+  return `
+  <div class="metrics-row">
+    ${metricCard('fa-handshake', '#e6ecf7', 'var(--navy)', 'Solicitudes', list.length)}
+    ${metricCard('fa-clock', 'var(--warning-bg)', 'var(--warning-amber)', 'Pendientes', pendientes)}
+    ${metricCard('fa-circle-check', 'var(--success-bg)', 'var(--success-green)', 'Interesados', interesados)}
+  </div>
+  <div class="card-table">
+    <div class="card-table-header"><h3>Solicitudes de Asociación</h3><span class="subtitle">Revisa la propuesta y decide si deseas contactar al solicitante.</span></div>
+    <div class="table-scroll"><table>
+      <thead><tr><th>Fecha</th><th>Solicitante</th><th>Contacto</th><th>Tipo</th><th>Ciudad</th><th>Estado</th><th>Acción</th></tr></thead>
+      <tbody>${list.length ? list.map(s => `<tr>
+        <td>${fechaLarga(s.fecha)}</td>
+        <td><b>${escapeHTML(s.clienteNombre)}</b></td>
+        <td>${escapeHTML(s.telefono)}<br><small>${escapeHTML(s.correo)}</small></td>
+        <td>${escapeHTML(s.tipoAsociacion || '-')}</td>
+        <td>${escapeHTML(s.ciudad || '-')}</td>
+        <td>${s.estado === 'Pendiente' ? '<span class="badge badge-amber">Pendiente</span>' : s.estado === 'Interesado' ? '<span class="badge badge-green">Interesado</span>' : '<span class="badge badge-red">No interesado</span>'}</td>
+        <td><button class="btn-secondary" onclick="abrirModalSolicitudAsociacionAdmin(${s.id})"><i class="fa-solid fa-eye"></i> Ver propuesta</button></td>
+      </tr>`).join('') : '<tr><td colspan="7" class="empty-state">No hay solicitudes de asociación.</td></tr>'}</tbody>
+    </table></div>
+  </div>`;
+}
+
 /* Clientes */
 function renderAdminClientes() {
   return `
@@ -1997,6 +2233,7 @@ function eliminarCliente(id) {
   confirmarAccion(`¿Eliminar al cliente ${c.nombre} y su negocio ${c.negocio.nombre}?`, () => {
     DB.clientes = DB.clientes.filter(x => x.id !== id);
     DB.seguimientos = DB.seguimientos.filter(s => s.clienteId !== id);
+    DB.solicitudesAsociacion = (DB.solicitudesAsociacion || []).filter(s => Number(s.clienteId) !== Number(id));
     DB.usuarios = DB.usuarios.filter(u => !(u.rol === 'client' && u.entidadId === id));
     DB.solicitudesEdicion = DB.solicitudesEdicion.filter(s => s.clienteId !== id);
     DB.solicitudesInversion = DB.solicitudesInversion.filter(s => s.clienteId !== id);
@@ -2543,7 +2780,17 @@ function confirmarAlertaTrabajador(c, t) {
 /* Seguimientos */
 function renderAdminSeguimientos() {
   const all = [...DB.seguimientos].sort((a, b) => b.fecha.localeCompare(a.fecha));
+  const perdidas = all.filter(s => s.perdidas);
+  const totalPerdidas = perdidas.reduce((sum, s) => sum + (Number(s.montoPerdida) || 0), 0);
+  const afectanInversion = perdidas.filter(s => s.afectaInversion).length;
   return `
+  <div class="card-table">
+    <div class="form-grid-4" style="margin-bottom:16px;">
+      <div class="stat-card"><div class="stat-label">Negocios con pérdidas</div><div class="stat-value">${perdidas.length}</div></div>
+      <div class="stat-card"><div class="stat-label">Pérdida total estimada</div><div class="stat-value">${formatCOP(totalPerdidas)}</div></div>
+      <div class="stat-card"><div class="stat-label">Afectan la inversión</div><div class="stat-value">${afectanInversion}</div></div>
+      <div class="stat-card"><div class="stat-label">Pérdidas esta semana</div><div class="stat-value">${perdidas.filter(s => esMismaSemanaISO(s.fecha, fechaHoyLocal())).length}</div></div>
+    </div>
   <div class="card-table">
     <div class="card-table-header">
       <h3>Todos los Seguimientos</h3>
@@ -2556,12 +2803,13 @@ function renderAdminSeguimientos() {
       </select>
     </div>
     <div class="table-scroll" id="tabla-seguimientos-admin">${tablaSeguimientosAdmin(all)}</div>
+  </div>
   </div>`;
 }
 
 function tablaSeguimientosAdmin(list) {
   return `<table>
-    <thead><tr><th>Fecha</th><th>Negocio</th><th>Asesor</th><th>Visita</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Alerta</th><th>Próx. Visita</th><th>Evidencias</th><th></th></tr></thead>
+    <thead><tr><th>Fecha</th><th>Negocio</th><th>Asesor</th><th>Visita</th><th>Ventas</th><th>Gastos</th><th>Utilidad</th><th>Pérdida</th><th>Alerta</th><th>Próx. Visita</th><th>Evidencias</th><th></th></tr></thead>
     <tbody>
       ${list.length ? list.map(s => `<tr>
         <td>${fechaLarga(s.fecha)}</td>
@@ -2571,11 +2819,12 @@ function tablaSeguimientosAdmin(list) {
         <td>${formatCOP(s.ventas)}</td>
         <td>${formatCOP(s.gastos)}</td>
         <td>${formatCOP(s.utilidad)}</td>
+        <td>${s.perdidas ? `<span class="badge badge-red">${formatCOP(s.montoPerdida || 0)}</span>` : '<span class="badge badge-green">Sin pérdida</span>'}</td>
         <td>${badgeEstado(s.estado)}</td>
         <td>${s.proximaVisita ? fechaLarga(s.proximaVisita) : '-'}</td>
         <td>${(s.evidencias?.fotos || []).length + (s.evidencias?.documentos || []).length + (s.evidencias?.facturas || []).length} archivos</td>
         <td><button class="btn-secondary" onclick="verSeguimientoDetalle(${s.id})">Ver</button></td>
-      </tr>`).join('') : `<tr><td colspan="11" class="empty-state">No hay seguimientos registrados.</td></tr>`}
+      </tr>`).join('') : `<tr><td colspan="12" class="empty-state">No hay seguimientos registrados.</td></tr>`}
     </tbody>
   </table>`;
 }
@@ -2648,6 +2897,7 @@ const CFG_MODULOS = [
   { grupo: 'client', id: 'c-seguimientos', label: 'Seguimientos' },
   { grupo: 'client', id: 'c-perfil', label: 'Mi Perfil' },
   { grupo: 'client', id: 'c-notificaciones', label: 'Notificaciones' },
+  { grupo: 'client', id: 'c-asociacion', label: 'Quiero asociarme' },
   { grupo: 'worker', id: 'w-inicio', label: 'Nuevo Seguimiento' },
   { grupo: 'worker', id: 'w-negocios', label: 'Mis Negocios' },
   { grupo: 'worker', id: 'w-seguimientos', label: 'Seguimientos Realizados' },
@@ -2659,6 +2909,7 @@ const CFG_MODULOS = [
   { grupo: 'admin', id: 'a-trabajadores', label: 'Trabajadores' },
   { grupo: 'admin', id: 'a-inversiones', label: 'Inversiones' },
   { grupo: 'admin', id: 'a-solicitudes', label: 'Solicitudes' },
+  { grupo: 'admin', id: 'a-asociaciones', label: 'Asociaciones' },
   { grupo: 'admin', id: 'a-pagos', label: 'Pagos y Cartera' },
   { grupo: 'admin', id: 'a-alertas', label: 'Alertas' },
   { grupo: 'admin', id: 'a-seguimientos', label: 'Seguimientos' },
@@ -2721,27 +2972,6 @@ function renderCfgParametros() {
       <div class="field"><label>Fondo de Capital Total de JORAN (COP)</label><input type="number" class="form-control" value="${DB.capital.total}" id="cfg-cap-total"></div>
     </div>
     <button class="btn-main" onclick="guardarConfiguracionAdmin()"><i class="fa-solid fa-floppy-disk"></i> Guardar Configuración</button>
-  </div>
-  <div class="card-table">
-    <div class="card-table-header"><h3>Representante Legal (para Contratos de Inversión)</h3></div>
-    <p style="font-size:.8rem;color:var(--text-muted);margin-bottom:12px;">Estos datos y esta firma aparecen automáticamente en el Contrato de Inversión que se genera para cada cliente. Se guardan únicamente en los datos de la plataforma, no en el código de la aplicación.</p>
-    <div class="form-grid-3">
-      <div class="field"><label>Nombre del representante</label><input class="form-control" id="cfg-rep-nombre" value="${escapeHTML(p.representanteNombre || '')}"></div>
-      <div class="field"><label>Documento (C.C.)</label><input class="form-control" id="cfg-rep-doc" value="${escapeHTML(p.representanteDocumento || '')}"></div>
-      <div class="field"><label>Cargo</label><input class="form-control" id="cfg-rep-cargo" value="${escapeHTML(p.representanteCargo || 'Representante Legal')}"></div>
-    </div>
-    <div class="field" style="margin-bottom:6px;">
-      <label>Firma (imagen, idealmente PNG con fondo transparente)</label>
-      <input type="file" id="input-firma-rep" accept="image/*" style="display:none" onchange="handleFirmaRepresentanteSelect(this)">
-      <div style="display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin-top:4px;">
-        ${p.representanteFirma
-          ? `<img src="${p.representanteFirma}" style="width:150px;height:62px;object-fit:contain;border:1px solid var(--border-color);border-radius:6px;background:#f8fafc;">`
-          : `<span style="font-size:.78rem;color:var(--text-muted);">Sin firma cargada. El contrato mostrará una línea en blanco para firmar a mano.</span>`}
-        <button type="button" class="btn-secondary" onclick="document.getElementById('input-firma-rep').click()"><i class="fa-solid fa-upload"></i> ${p.representanteFirma ? 'Cambiar firma' : 'Subir firma'}</button>
-        ${p.representanteFirma ? `<button type="button" class="btn-danger" onclick="eliminarFirmaRepresentante()"><i class="fa-solid fa-trash"></i> Quitar firma</button>` : ''}
-      </div>
-    </div>
-    <button class="btn-main" style="margin-top:10px;" onclick="guardarRepresentanteContrato()"><i class="fa-solid fa-floppy-disk"></i> Guardar Datos del Representante</button>
   </div>`;
 }
 
@@ -2756,51 +2986,6 @@ function guardarConfiguracionAdmin() {
   registrarAuditoria('Parámetros generales actualizados', '');
   guardarEstado();
   mostrarNotificacion('Configuración guardada correctamente');
-}
-
-function guardarRepresentanteContrato() {
-  DB.parametros.representanteNombre = el('cfg-rep-nombre').value.trim();
-  DB.parametros.representanteDocumento = el('cfg-rep-doc').value.trim();
-  DB.parametros.representanteCargo = el('cfg-rep-cargo').value.trim() || 'Representante Legal';
-  registrarAuditoria('Datos del representante legal actualizados', DB.parametros.representanteNombre);
-  guardarEstado();
-  mostrarNotificacion('Datos del representante guardados correctamente');
-}
-
-function handleFirmaRepresentanteSelect(inputEl) {
-  const file = (inputEl.files || [])[0];
-  if (!file) return;
-  if (!file.type.startsWith('image/')) {
-    mostrarNotificacion('Selecciona un archivo de imagen (PNG o JPG).', true);
-    inputEl.value = '';
-    return;
-  }
-  if (file.size > 2 * 1024 * 1024) {
-    mostrarNotificacion('La imagen de la firma no debe superar 2 MB.', true);
-    inputEl.value = '';
-    return;
-  }
-  const reader = new FileReader();
-  reader.onload = () => {
-    DB.parametros.representanteFirma = reader.result;
-    registrarAuditoria('Firma del representante legal actualizada', '');
-    guardarEstado();
-    mostrarNotificacion('Firma cargada correctamente');
-    navegar('a-configuracion');
-  };
-  reader.onerror = () => mostrarNotificacion('No se pudo leer la imagen seleccionada', true);
-  reader.readAsDataURL(file);
-  inputEl.value = '';
-}
-
-function eliminarFirmaRepresentante() {
-  confirmarAccion('¿Quitar la firma cargada del representante legal? El contrato mostrará una línea en blanco.', () => {
-    DB.parametros.representanteFirma = null;
-    registrarAuditoria('Firma del representante legal eliminada', '');
-    guardarEstado();
-    mostrarNotificacion('Firma eliminada');
-    navegar('a-configuracion');
-  });
 }
 
 function nombreRol(rol) { return rol === 'client' ? 'Cliente' : rol === 'worker' ? 'Trabajador' : 'Administrador'; }
@@ -3564,14 +3749,10 @@ function asegurarDatosNuevos() {
   DB.notificaciones = Array.isArray(DB.notificaciones) ? DB.notificaciones : [];
   DB.notificaciones.forEach(n => { n.leida = n.leida === true; });
   DB.solicitudesEdicion = Array.isArray(DB.solicitudesEdicion) ? DB.solicitudesEdicion : [];
+  DB.solicitudesAsociacion = Array.isArray(DB.solicitudesAsociacion) ? DB.solicitudesAsociacion : [];
   DB.capital = DB.capital || { total: 50000000, recuperado: 0 };
   DB.nextId = DB.nextId || {};
-  ['solicitudInversion', 'pago', 'alerta', 'notificacion', 'solicitud'].forEach(k => { if (!DB.nextId[k]) DB.nextId[k] = 1; });
-  DB.parametros = DB.parametros || {};
-  if (DB.parametros.representanteNombre === undefined) DB.parametros.representanteNombre = '';
-  if (DB.parametros.representanteDocumento === undefined) DB.parametros.representanteDocumento = '';
-  if (DB.parametros.representanteCargo === undefined) DB.parametros.representanteCargo = 'Representante Legal';
-  if (DB.parametros.representanteFirma === undefined) DB.parametros.representanteFirma = null;
+  ['solicitudInversion', 'pago', 'alerta', 'notificacion', 'solicitud', 'solicitudAsociacion'].forEach(k => { if (!DB.nextId[k]) DB.nextId[k] = 1; });
   DB.clientes.forEach(c => {
     c.resultados = c.resultados || { ventas: 0, gastos: 0, utilidad: 0, inventario: 0, deudas: 0, metas: 0 };
     c.inversion = c.inversion || { solicitado: 0, aprobado: 0, recibido: 0, fecha: '', tipo: '', participacion: 0, destino: '', estado: 'Pendiente', rentabilidad: 0 };
